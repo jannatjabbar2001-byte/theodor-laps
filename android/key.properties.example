@@ -1,0 +1,5 @@
+# Copy this file to key.properties locally. Never commit key.properties.
+storeFile=path/to/production.keystore
+storePassword=
+keyAlias=
+keyPassword=
