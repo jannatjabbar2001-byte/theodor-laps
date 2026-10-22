@@ -13,6 +13,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
 import 'video_source.dart';
+import 'community_page.dart';
+import 'community_page.dart';
 
 const bg = Color(0xfff8fafc);
 const cyan = Color(0xff38bdf8);
@@ -70,6 +72,59 @@ class TheodoreApi {
     return jsonDecode(response.body) as List<dynamic>;
   }
 
+  static Future<dynamic> communityGet(String path) async {
+    final response = await http.get(
+      Uri.parse('$apiBaseUrl$path'),
+      headers: {'Authorization': 'Bearer ${await _token()}'},
+    ).timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) throw Exception('community_request_failed');
+    return jsonDecode(response.body);
+  }
+
+  static Future<dynamic> communityPost(String path, Map<String, dynamic> body) async {
+    final response = await http.post(
+      Uri.parse('$apiBaseUrl$path'),
+      headers: {
+        'Authorization': 'Bearer ${await _token()}',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) throw Exception('community_request_failed');
+    return jsonDecode(response.body);
+  }
+
+  static Future<dynamic> communityPut(String path, Map<String, dynamic> body) async {
+    final response = await http.put(
+      Uri.parse('$apiBaseUrl$path'),
+      headers: {
+        'Authorization': 'Bearer ${await _token()}',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) throw Exception('community_request_failed');
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, String>> communityImageHeaders() async => {
+    'Authorization': 'Bearer ${await _token()}',
+  };
+
+  static Future<dynamic> communityUploadAvatar(String path, XFile image) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$apiBaseUrl$path'));
+    request.headers['Authorization'] = 'Bearer ${await _token()}';
+    request.files.add(http.MultipartFile.fromBytes(
+      'image',
+      await image.readAsBytes(),
+      filename: image.name,
+    ));
+    final streamed = await request.send().timeout(const Duration(seconds: 20));
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode != 200) throw Exception('community_avatar_upload_failed');
+    return jsonDecode(response.body);
+  }
+
   static Future<String> signedVideoUrl(int videoId) async {
     final response = await http.get(Uri.parse('$apiBaseUrl/videos/$videoId/url'), headers: {'Authorization': 'Bearer ${await _token()}'}).timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) throw Exception('video_access_denied');
@@ -89,8 +144,27 @@ class TheodoreApi {
     return {...token, 'user': jsonDecode(me.body)};
   }
 
-  static Future<Map<String, dynamic>> register({required String username, required String password}) async {
-    final response = await http.post(Uri.parse('$apiBaseUrl/auth/register'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'username': username, 'password': password})).timeout(const Duration(seconds: 6));
+  static Future<Map<String, dynamic>> register({required String username, required String password, String displayName = '', XFile? avatar}) async {
+    late http.Response response;
+    if (avatar == null) {
+      response = await http.post(
+        Uri.parse('$apiBaseUrl/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'username': username, 'password': password, 'display_name': displayName}),
+      ).timeout(const Duration(seconds: 10));
+    } else {
+      final request = http.MultipartRequest('POST', Uri.parse('$apiBaseUrl/auth/register'))
+        ..fields['username'] = username
+        ..fields['password'] = password
+        ..fields['display_name'] = displayName;
+      request.files.add(http.MultipartFile.fromBytes(
+        'avatar',
+        await avatar.readAsBytes(),
+        filename: avatar.name,
+      ));
+      final streamed = await request.send().timeout(const Duration(seconds: 20));
+      response = await http.Response.fromStream(streamed);
+    }
     if (response.statusCode != 200) throw Exception('register_failed');
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
@@ -549,6 +623,9 @@ class _LoginPageState extends State<LoginPage> {
   final secondNameController = TextEditingController();
   final emailController = TextEditingController();
   final birthDateController = TextEditingController();
+  XFile? communityAvatar;
+  Uint8List? communityAvatarBytes;
+  bool pickingCommunityAvatar = false;
   List<Map<String, dynamic>> accounts = [];
   static const arabicMonths = [
     'كانون الثاني',
@@ -610,6 +687,31 @@ class _LoginPageState extends State<LoginPage> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> pickCommunityAvatar() async {
+    setState(() => pickingCommunityAvatar = true);
+    try {
+      const imageTypes = XTypeGroup(
+        label: 'images',
+        extensions: ['png', 'jpg', 'jpeg', 'webp'],
+      );
+      final file = await openFile(acceptedTypeGroups: [imageTypes]);
+      if (file == null || !mounted) return;
+      final bytes = await file.readAsBytes();
+      if (bytes.length > 2 * 1024 * 1024) {
+        showMessage('يجب ألا يتجاوز حجم الصورة 2 ميغابايت');
+        return;
+      }
+      setState(() {
+        communityAvatar = file;
+        communityAvatarBytes = bytes;
+      });
+    } catch (_) {
+      if (mounted) showMessage('تعذر فتح الصورة المختارة');
+    } finally {
+      if (mounted) setState(() => pickingCommunityAvatar = false);
+    }
+  }
+
   Future<void> enter() async {
     final username = usernameController.text.trim();
     final password = passwordController.text;
@@ -657,6 +759,7 @@ class _LoginPageState extends State<LoginPage> {
     final email = emailController.text.trim().toLowerCase();
     final password = passwordController.text;
     final confirmation = confirmPasswordController.text;
+    final displayName = '${firstNameController.text.trim()} ${secondNameController.text.trim()}'.trim();
     if (firstNameController.text.trim().isEmpty ||
         secondNameController.text.trim().isEmpty ||
         emailController.text.trim().isEmpty ||
@@ -688,7 +791,12 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
     try {
-      await TheodoreApi.register(username: normalizedUsername, password: password);
+      await TheodoreApi.register(
+        username: normalizedUsername,
+        password: password,
+        displayName: displayName,
+        avatar: communityAvatar,
+      );
     } catch (_) {
       showMessage('تعذر إنشاء الحساب على السيرفر، حاول مرة أخرى');
       return;
@@ -713,6 +821,8 @@ class _LoginPageState extends State<LoginPage> {
       creatingAccount = false;
       passwordController.clear();
       confirmPasswordController.clear();
+      communityAvatar = null;
+      communityAvatarBytes = null;
     });
     showMessage('تم إنشاء الحساب. استخدم اسم المستخدم وكلمة المرور للدخول');
   }
@@ -899,6 +1009,46 @@ class _LoginPageState extends State<LoginPage> {
           prefixIcon: Icon(Icons.badge_outlined),
         ),
       ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          CircleAvatar(
+            radius: 25,
+            backgroundColor: const Color(0xffdff0ec),
+            backgroundImage: communityAvatarBytes == null
+                ? null
+                : MemoryImage(communityAvatarBytes!),
+            child: communityAvatarBytes == null
+                ? const Icon(Icons.person_outline_rounded, color: loginTeal)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: pickingCommunityAvatar ? null : pickCommunityAvatar,
+              icon: pickingCommunityAvatar
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.add_a_photo_outlined),
+              label: Text(communityAvatar == null ? 'إضافة صورة شخصية' : 'تغيير الصورة'),
+            ),
+          ),
+        ],
+      ),
+      if (communityAvatar != null) ...[
+        const SizedBox(height: 4),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            communityAvatar!.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: mutedInk, fontSize: 12),
+          ),
+        ),
+      ],
       const SizedBox(height: 12),
       TextField(
         controller: emailController,
@@ -1190,6 +1340,21 @@ class _FeatureTileState extends State<FeatureTile> {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ExplorationPage()),
+        );
+      }
+      if (widget.index == 7) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CommunityPage(
+              onGet: TheodoreApi.communityGet,
+              onPost: TheodoreApi.communityPost,
+              onPut: TheodoreApi.communityPut,
+              onAvatarUpload: TheodoreApi.communityUploadAvatar,
+              onImageHeaders: TheodoreApi.communityImageHeaders,
+              apiBaseUrl: apiBaseUrl,
+            ),
+          ),
         );
       }
       if (widget.index == 10) {

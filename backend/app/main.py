@@ -7,13 +7,15 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlsplit
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.responses import FileResponse
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, ConfigDict, EmailStr
-from sqlalchemy import Boolean, ForeignKey, Integer, String, create_engine, select, text
+from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, Text, UniqueConstraint, cast, create_engine, func, or_, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -143,6 +145,40 @@ class Progress(Base):
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
     updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
+class CommunityProfile(Base):
+    __tablename__ = "community_profiles"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(40), default="")
+    avatar_filename: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+class CommunityConversation(Base):
+    __tablename__ = "community_conversations"
+    __table_args__ = (UniqueConstraint("member_low_id", "member_high_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    member_low_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    member_high_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc), index=True)
+
+class CommunityMembership(Base):
+    __tablename__ = "community_memberships"
+    conversation_id: Mapped[int] = mapped_column(ForeignKey("community_conversations.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True)
+    last_read_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+class CommunityMessage(Base):
+    __tablename__ = "community_messages"
+    __table_args__ = (
+        Index("ix_community_messages_conversation_id_id", "conversation_id", "id"),
+        Index("ix_community_messages_created_at", "created_at"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sender_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    conversation_id: Mapped[int | None] = mapped_column(ForeignKey("community_conversations.id", ondelete="CASCADE"), nullable=True)
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+
 Base.metadata.create_all(engine)
 
 ITEMS = {
@@ -175,6 +211,13 @@ def seed_system() -> None:
             if "object_key" not in video_columns:
                 session.execute(text("ALTER TABLE videos ADD COLUMN object_key VARCHAR(500)"))
                 session.commit()
+            profile_columns = {row[1] for row in session.execute(text("PRAGMA table_info(community_profiles)"))}
+            if "avatar_filename" not in profile_columns:
+                session.execute(text("ALTER TABLE community_profiles ADD COLUMN avatar_filename VARCHAR(80)"))
+                session.commit()
+        else:
+            session.execute(text("ALTER TABLE community_profiles ADD COLUMN IF NOT EXISTS avatar_filename VARCHAR(80)"))
+            session.commit()
         for key, title in ITEMS.items():
             if not session.scalar(select(Item).where(Item.key == key)):
                 session.add(Item(key=key, title=title, enabled=True))
@@ -227,6 +270,9 @@ class VideoPublishIn(BaseModel): language: str; title: str; object_key: str; acc
 class RoleIn(BaseModel): role: str
 class ProgressIn(BaseModel): video_id: int; position_seconds: float; completed: bool = False
 class PresignIn(BaseModel): filename: str; content_type: str = "video/mp4"
+class CommunityProfileIn(BaseModel): display_name: str
+class CommunityMessageIn(BaseModel): body: str
+class CommunityConversationIn(BaseModel): user_id: int
 
 def normalized_title(title: str) -> str:
     return re.sub(r"[^\w\u0600-\u06ff]+", "", title.casefold())
@@ -275,6 +321,103 @@ def can_access(user: User, item_key: str, resource_key: str | None, session: Ses
     if role_item and not role_item.enabled: return False
     return session.scalar(select(Permission).where(Permission.user_id == user.id, Permission.item_key == item_key, Permission.resource_key == resource_key, Permission.allowed.is_(True))) is not None or session.scalar(select(Permission).where(Permission.user_id == user.id, Permission.item_key == item_key, Permission.resource_key.is_(None), Permission.allowed.is_(True))) is not None
 
+def require_community_access(user: User, session: Session) -> None:
+    if not can_access(user, "community", None, session):
+        raise HTTPException(status_code=403, detail="ليس لديك صلاحية دخول المجتمع")
+
+def community_user_data(user: User, session: Session) -> dict:
+    profile = session.get(CommunityProfile, user.id)
+    return {
+        "id": user.id,
+        "display_name": profile.display_name if profile and profile.display_name else f"عضو {user.id}",
+        "avatar_url": f"/community/avatars/{user.id}?v={profile.avatar_filename}" if profile and profile.avatar_filename else None,
+        "role": user.role,
+    }
+
+async def store_community_avatar(user_id: int, image: UploadFile, profile: CommunityProfile, session: Session) -> None:
+    content_type = (image.content_type or "").lower()
+    formats = {
+        "image/png": ("png", b"\x89PNG\r\n\x1a\n"),
+        "image/jpeg": ("jpg", b"\xff\xd8\xff"),
+        "image/webp": ("webp", b"RIFF"),
+    }
+    image_format = formats.get(content_type)
+    if image_format is None:
+        raise HTTPException(status_code=415, detail="اختر صورة PNG أو JPEG أو WebP")
+    data = await image.read(2 * 1024 * 1024 + 1)
+    if len(data) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="يجب ألا يتجاوز حجم الصورة 2 ميغابايت")
+    extension, signature = image_format
+    if not data.startswith(signature) or (extension == "webp" and data[8:12] != b"WEBP"):
+        raise HTTPException(status_code=415, detail="محتوى الملف لا يطابق نوع الصورة")
+
+    avatar_directory = MEDIA / "community-avatars"
+    avatar_directory.mkdir(parents=True, exist_ok=True)
+    filename = f"{user_id}-{uuid4().hex}.{extension}"
+    avatar_path = avatar_directory / filename
+    avatar_path.write_bytes(data)
+    previous_filename = profile.avatar_filename
+    profile.avatar_filename = filename
+    try:
+        session.commit()
+    except Exception:
+        avatar_path.unlink(missing_ok=True)
+        raise
+    if previous_filename:
+        previous_path = avatar_directory / Path(previous_filename).name
+        if previous_path != avatar_path:
+            previous_path.unlink(missing_ok=True)
+
+def community_message_data(messages: list[CommunityMessage], viewer_id: int, session: Session) -> list[dict]:
+    sender_ids = {message.sender_id for message in messages}
+    if not sender_ids:
+        return []
+    users = session.scalars(select(User).where(User.id.in_(sender_ids))).all()
+    profiles = session.scalars(select(CommunityProfile).where(CommunityProfile.user_id.in_(sender_ids))).all()
+    users_by_id = {member.id: member for member in users}
+    names_by_id = {profile.user_id: profile.display_name for profile in profiles if profile.display_name}
+    avatars_by_id = {profile.user_id: profile.avatar_filename for profile in profiles if profile.avatar_filename}
+    return [
+        {
+            "id": message.id,
+            "body": message.body,
+            "created_at": message.created_at.isoformat(),
+            "sender": {
+                "id": message.sender_id,
+                "display_name": names_by_id.get(message.sender_id, f"عضو {message.sender_id}"),
+                "avatar_url": f"/community/avatars/{message.sender_id}?v={avatars_by_id[message.sender_id]}" if message.sender_id in avatars_by_id else None,
+            },
+            "is_mine": message.sender_id == viewer_id,
+        }
+        for message in messages
+        if message.sender_id in users_by_id
+    ]
+
+def select_community_messages(session: Session, conversation_id: int | None, before_id: int | None, after_id: int, limit: int) -> list[CommunityMessage]:
+    statement = select(CommunityMessage).where(CommunityMessage.conversation_id == conversation_id)
+    if before_id is not None:
+        statement = statement.where(CommunityMessage.id < before_id).order_by(CommunityMessage.id.desc())
+    elif after_id > 0:
+        statement = statement.where(CommunityMessage.id > after_id).order_by(CommunityMessage.id.asc())
+    else:
+        statement = statement.order_by(CommunityMessage.id.desc())
+    messages = list(session.scalars(statement.limit(max(1, min(limit, 100)))).all())
+    if before_id is None and after_id == 0 or before_id is not None:
+        messages.reverse()
+    return messages
+
+def require_conversation_member(conversation_id: int, user: User, session: Session) -> tuple[CommunityConversation, CommunityMembership]:
+    conversation = session.get(CommunityConversation, conversation_id)
+    if not conversation or user.id not in {conversation.member_low_id, conversation.member_high_id}:
+        raise HTTPException(status_code=404, detail="المحادثة غير موجودة")
+    membership = session.scalar(select(CommunityMembership).where(
+        CommunityMembership.conversation_id == conversation_id,
+        CommunityMembership.user_id == user.id,
+    ))
+    if not membership:
+        raise HTTPException(status_code=404, detail="المحادثة غير موجودة")
+    return conversation, membership
+
 @app.get("/health")
 def health(): return {"status": "ok", "service": "alkawn-alshamil"}
 
@@ -297,18 +440,209 @@ def me(user: Annotated[User, Depends(current_user)]):
     return user
 
 @app.post("/auth/register", response_model=UserOut)
-def register(data: dict, session: Annotated[Session, Depends(db)]):
-    username = str(data.get("username", "")).strip().lower()
-    password = str(data.get("password", ""))
+async def register(request: Request, session: Annotated[Session, Depends(db)]):
+    image = None
+    if request.headers.get("content-type", "").startswith("multipart/form-data"):
+        form = await request.form()
+        username = str(form.get("username", "")).strip().lower()
+        password = str(form.get("password", ""))
+        display_name = str(form.get("display_name", "")).strip()
+        image = form.get("avatar")
+        if image is not None and not all(hasattr(image, name) for name in ("read", "content_type")):
+            raise HTTPException(status_code=400, detail="ملف الصورة غير صالح")
+    else:
+        data = await request.json()
+        username = str(data.get("username", "")).strip().lower()
+        password = str(data.get("password", ""))
+        display_name = str(data.get("display_name", "")).strip()
     if username == "1" or not username or len(password) < 8:
         raise HTTPException(status_code=400, detail="اسم المستخدم وكلمة المرور مطلوبان")
+    if display_name and (not 2 <= len(display_name) <= 40 or any(ord(character) < 32 for character in display_name)):
+        raise HTTPException(status_code=422, detail="الاسم الظاهر يجب أن يكون بين حرفين و40 حرفًا")
     if session.scalar(select(User).where(User.email == username)):
         raise HTTPException(status_code=409, detail="اسم المستخدم مستخدم من قبل")
     user = User(email=username, password_hash=pwd.hash(password), role="user")
     session.add(user)
-    session.commit()
+    session.flush()
+    profile = CommunityProfile(user_id=user.id, display_name=display_name)
+    session.add(profile)
+    if image is not None:
+        await store_community_avatar(user.id, image, profile, session)
+    else:
+        session.commit()
     session.refresh(user)
     return user
+
+@app.get("/community/profile")
+def get_community_profile(user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)]):
+    require_community_access(user, session)
+    return community_user_data(user, session)
+
+@app.put("/community/profile")
+def update_community_profile(data: CommunityProfileIn, user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)]):
+    require_community_access(user, session)
+    display_name = data.display_name.strip()
+    if not 2 <= len(display_name) <= 40 or any(ord(character) < 32 for character in display_name):
+        raise HTTPException(status_code=422, detail="الاسم الظاهر يجب أن يكون بين حرفين و40 حرفًا")
+    profile = session.get(CommunityProfile, user.id)
+    if not profile:
+        profile = CommunityProfile(user_id=user.id, display_name=display_name)
+        session.add(profile)
+    else:
+        profile.display_name = display_name
+    session.commit()
+    session.refresh(profile)
+    return community_user_data(user, session)
+
+@app.post("/community/profile/avatar")
+async def update_community_avatar(user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)], image: UploadFile = File(...)):
+    require_community_access(user, session)
+    profile = session.get(CommunityProfile, user.id)
+    if not profile:
+        profile = CommunityProfile(user_id=user.id, display_name="")
+        session.add(profile)
+        session.flush()
+    await store_community_avatar(user.id, image, profile, session)
+    session.refresh(profile)
+    return community_user_data(user, session)
+
+@app.get("/community/avatars/{user_id}")
+def get_community_avatar(user_id: int, user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)]):
+    require_community_access(user, session)
+    target = session.get(User, user_id)
+    if not target or not target.active or not can_access(target, "community", None, session):
+        raise HTTPException(status_code=404, detail="الصورة غير موجودة")
+    profile = session.get(CommunityProfile, user_id)
+    if not profile or not profile.avatar_filename:
+        raise HTTPException(status_code=404, detail="الصورة غير موجودة")
+    filename = Path(profile.avatar_filename).name
+    avatar_path = MEDIA / "community-avatars" / filename
+    if not avatar_path.is_file():
+        raise HTTPException(status_code=404, detail="الصورة غير موجودة")
+    media_type = {".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp"}.get(avatar_path.suffix.lower())
+    if not media_type:
+        raise HTTPException(status_code=404, detail="الصورة غير موجودة")
+    return FileResponse(avatar_path, media_type=media_type, headers={"Cache-Control": "private, max-age=3600"})
+
+@app.get("/community/users")
+def community_users(search: str = "", limit: int = 40, user: User = Depends(current_user), session: Session = Depends(db)):
+    require_community_access(user, session)
+    statement = select(User).where(User.active.is_(True), User.id != user.id)
+    normalized_search = search.strip()[:40]
+    if normalized_search:
+        statement = statement.outerjoin(CommunityProfile, CommunityProfile.user_id == User.id).where(
+            or_(
+                CommunityProfile.display_name.ilike(f"%{normalized_search}%"),
+                cast(User.id, String).ilike(f"%{normalized_search}%"),
+            )
+        )
+    users = session.scalars(statement.order_by(User.id.desc()).limit(max(1, min(limit, 100)))).all()
+    return [community_user_data(member, session) for member in users if can_access(member, "community", None, session)]
+
+@app.get("/community/messages")
+def public_community_messages(user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)], before_id: int | None = None, after_id: int = 0, limit: int = 50):
+    require_community_access(user, session)
+    messages = select_community_messages(session, None, before_id, after_id, limit)
+    return community_message_data(messages, user.id, session)
+
+@app.post("/community/messages")
+def send_public_community_message(data: CommunityMessageIn, user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)]):
+    require_community_access(user, session)
+    body = data.body.strip()
+    if not body or len(body) > 2000:
+        raise HTTPException(status_code=422, detail="يجب أن تحتوي الرسالة على 1 إلى 2000 حرف")
+    message = CommunityMessage(sender_id=user.id, body=body)
+    session.add(message)
+    session.commit()
+    session.refresh(message)
+    return community_message_data([message], user.id, session)[0]
+
+@app.get("/community/conversations")
+def list_community_conversations(user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)]):
+    require_community_access(user, session)
+    memberships = session.scalars(select(CommunityMembership).where(CommunityMembership.user_id == user.id)).all()
+    result = []
+    for membership in memberships:
+        conversation = session.get(CommunityConversation, membership.conversation_id)
+        if not conversation:
+            continue
+        other_id = conversation.member_high_id if conversation.member_low_id == user.id else conversation.member_low_id
+        other_user = session.get(User, other_id)
+        if not other_user or not other_user.active or not can_access(other_user, "community", None, session):
+            continue
+        latest = session.scalar(select(CommunityMessage).where(
+            CommunityMessage.conversation_id == conversation.id
+        ).order_by(CommunityMessage.id.desc()).limit(1))
+        unread_count = session.scalar(select(func.count(CommunityMessage.id)).where(
+            CommunityMessage.conversation_id == conversation.id,
+            CommunityMessage.sender_id != user.id,
+            CommunityMessage.id > (membership.last_read_message_id or 0),
+        )) or 0
+        result.append({
+            "id": conversation.id,
+            "user": community_user_data(other_user, session),
+            "unread_count": unread_count,
+            "last_message": latest.body if latest else None,
+            "updated_at": (latest.created_at if latest else conversation.updated_at).isoformat(),
+        })
+    return sorted(result, key=lambda item: item["updated_at"], reverse=True)
+
+@app.post("/community/conversations")
+def create_community_conversation(data: CommunityConversationIn, user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)]):
+    require_community_access(user, session)
+    if data.user_id == user.id:
+        raise HTTPException(status_code=400, detail="لا يمكن بدء محادثة مع حسابك")
+    other_user = session.get(User, data.user_id)
+    if not other_user or not other_user.active or not can_access(other_user, "community", None, session):
+        raise HTTPException(status_code=404, detail="المستخدم غير متاح في المجتمع")
+    member_low_id, member_high_id = sorted((user.id, other_user.id))
+    conversation = session.scalar(select(CommunityConversation).where(
+        CommunityConversation.member_low_id == member_low_id,
+        CommunityConversation.member_high_id == member_high_id,
+    ))
+    if not conversation:
+        conversation = CommunityConversation(member_low_id=member_low_id, member_high_id=member_high_id)
+        session.add(conversation)
+        try:
+            session.flush()
+            session.add_all([
+                CommunityMembership(conversation_id=conversation.id, user_id=member_low_id),
+                CommunityMembership(conversation_id=conversation.id, user_id=member_high_id),
+            ])
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            conversation = session.scalar(select(CommunityConversation).where(
+                CommunityConversation.member_low_id == member_low_id,
+                CommunityConversation.member_high_id == member_high_id,
+            ))
+            if not conversation:
+                raise HTTPException(status_code=409, detail="تعذر إنشاء المحادثة، حاول مجددًا")
+    return {"id": conversation.id, "user": community_user_data(other_user, session)}
+
+@app.get("/community/conversations/{conversation_id}/messages")
+def private_community_messages(conversation_id: int, user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)], before_id: int | None = None, after_id: int = 0, limit: int = 50):
+    require_community_access(user, session)
+    _, membership = require_conversation_member(conversation_id, user, session)
+    messages = select_community_messages(session, conversation_id, before_id, after_id, limit)
+    if messages:
+        membership.last_read_message_id = max(membership.last_read_message_id or 0, messages[-1].id)
+        session.commit()
+    return community_message_data(messages, user.id, session)
+
+@app.post("/community/conversations/{conversation_id}/messages")
+def send_private_community_message(conversation_id: int, data: CommunityMessageIn, user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)]):
+    require_community_access(user, session)
+    conversation, _ = require_conversation_member(conversation_id, user, session)
+    body = data.body.strip()
+    if not body or len(body) > 2000:
+        raise HTTPException(status_code=422, detail="يجب أن تحتوي الرسالة على 1 إلى 2000 حرف")
+    message = CommunityMessage(sender_id=user.id, conversation_id=conversation_id, body=body)
+    conversation.updated_at = datetime.now(timezone.utc)
+    session.add(message)
+    session.commit()
+    session.refresh(message)
+    return community_message_data([message], user.id, session)[0]
 
 @app.get("/public/videos")
 def public_videos(user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)]):
