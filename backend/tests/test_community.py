@@ -106,6 +106,85 @@ class CommunityApiTests(unittest.TestCase):
             self.assertEqual(received[0]["body"], "رسالة خاصة")
             self.assertEqual(main.list_community_conversations(reader, session)[0]["unread_count"], 0)
 
+    def test_private_conversation_can_be_hidden_for_one_user(self):
+        with main.SessionLocal() as session:
+            sender = session.get(main.User, self.user_ids[0])
+            recipient = session.get(main.User, self.user_ids[1])
+            conversation = main.create_community_conversation(
+                main.CommunityConversationIn(user_id=recipient.id), sender, session
+            )
+            conversation_id = conversation["id"]
+            original = main.send_private_community_message(
+                conversation_id,
+                main.CommunityMessageIn(body="تاريخ محفوظ للطرف الآخر"),
+                sender,
+                session,
+            )
+
+            hidden = main.delete_community_conversation(
+                conversation_id, recipient, session, "me"
+            )
+            self.assertEqual(hidden, {"deleted_for": "me"})
+            self.assertEqual(main.list_community_conversations(recipient, session), [])
+            self.assertEqual(len(main.list_community_conversations(sender, session)), 1)
+            self.assertEqual(
+                main.private_community_messages(conversation_id, recipient, session),
+                [],
+            )
+            self.assertEqual(
+                main.private_community_messages(conversation_id, sender, session)[0]["id"],
+                original["id"],
+            )
+            with self.assertRaises(HTTPException) as error:
+                main.send_private_community_message(
+                    conversation_id,
+                    main.CommunityMessageIn(body="رد مخفي", reply_to_id=original["id"]),
+                    recipient,
+                    session,
+                )
+            self.assertEqual(error.exception.status_code, 404)
+
+            new_message = main.send_private_community_message(
+                conversation_id,
+                main.CommunityMessageIn(body="رسالة بعد الإخفاء"),
+                sender,
+                session,
+            )
+            visible = main.private_community_messages(conversation_id, recipient, session)
+            self.assertEqual([message["id"] for message in visible], [new_message["id"]])
+            self.assertEqual(len(main.list_community_conversations(recipient, session)), 1)
+
+    def test_private_conversation_can_be_deleted_for_everyone(self):
+        with main.SessionLocal() as session:
+            sender = session.get(main.User, self.user_ids[0])
+            recipient = session.get(main.User, self.user_ids[1])
+            conversation = main.create_community_conversation(
+                main.CommunityConversationIn(user_id=recipient.id), sender, session
+            )
+            conversation_id = conversation["id"]
+            message = main.send_private_community_message(
+                conversation_id,
+                main.CommunityMessageIn(body="يُحذف للجميع"),
+                sender,
+                session,
+            )
+            outsider = session.get(main.User, self.user_ids[2])
+            with self.assertRaises(HTTPException) as error:
+                main.delete_community_conversation(
+                    conversation_id, outsider, session, "everyone"
+                )
+            self.assertEqual(error.exception.status_code, 404)
+            self.assertIsNotNone(session.get(main.CommunityConversation, conversation_id))
+            deleted = main.delete_community_conversation(
+                conversation_id, recipient, session, "everyone"
+            )
+            self.assertEqual(deleted, {"deleted_for": "everyone"})
+            self.assertIsNone(session.get(main.CommunityConversation, conversation_id))
+            self.assertIsNone(session.get(main.CommunityMessage, message["id"]))
+            with self.assertRaises(HTTPException) as error:
+                main.private_community_messages(conversation_id, sender, session)
+            self.assertEqual(error.exception.status_code, 404)
+
     def test_replies_stay_inside_their_conversation(self):
         with main.SessionLocal() as session:
             sender = session.get(main.User, self.user_ids[0])

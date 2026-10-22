@@ -24,12 +24,18 @@ startup rejects SQLite and requires the server-side Supabase and R2 settings
 listed in `.env.example`. `FRONTEND_ORIGIN` must be the HTTPS origin of the
 deployed Flutter web app (without a path).
 
-Before changing the Supabase schema, take and verify a database backup. Then
-review and apply `migrations/20261023_community_cloud.sql` to that same project.
-It creates the community tables additively, does not import SQLite community
-records, and schedules public-message expiry with Supabase `pg_cron`. Private
-messages have no expiry. The backend also runs a periodic cleanup while it is
-online.
+Before changing the Supabase schema, take and verify a database backup. Review
+and apply `migrations/20261023_community_cloud.sql`, followed by
+`migrations/20261023_community_conversation_deletion.sql`, to that same project.
+These migrations are additive, do not import SQLite community records, and
+schedule public-message expiry with Supabase `pg_cron`. Private messages have no
+expiry. The backend also runs a periodic cleanup while it is online.
+
+Users can delete a private conversation for themselves, which hides the
+existing history from that account while retaining it for the other participant.
+If a new message arrives, the conversation reappears for the hidden account
+without showing its pre-deletion history. Deleting for everyone removes the
+conversation and its messages for both participants.
 
 Community avatars are stored in R2 and their object keys in
 `community_profiles.avatar_filename`. Videos continue to use the existing R2

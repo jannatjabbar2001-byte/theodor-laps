@@ -7,6 +7,7 @@ class _FakeCommunityApi {
   final privateMessages = <Map<String, dynamic>>[];
   final conversations = <Map<String, dynamic>>[];
   final postedBodies = <Map<String, dynamic>>[];
+  final deletedPaths = <String>[];
   int nextId = 1;
 
   Future<dynamic> get(String path) async {
@@ -69,10 +70,21 @@ class _FakeCommunityApi {
     'display_name': body['display_name'],
     'role': 'user',
   };
+
+  Future<void> delete(String path) async {
+    deletedPaths.add(path);
+    final conversationId = int.parse(Uri.parse(path).pathSegments.last);
+    conversations.removeWhere((item) => item['id'] == conversationId);
+  }
 }
 
 Widget _testApp(_FakeCommunityApi api) => MaterialApp(
-  home: CommunityPage(onGet: api.get, onPost: api.post, onPut: api.put),
+  home: CommunityPage(
+    onGet: api.get,
+    onPost: api.post,
+    onPut: api.put,
+    onDelete: api.delete,
+  ),
 );
 
 void main() {
@@ -126,5 +138,31 @@ void main() {
     expect(api.conversations, hasLength(1));
     expect(find.text('محادثة خاصة بينكما'), findsOneWidget);
     expect(find.text('اكتب رسالة…'), findsOneWidget);
+  });
+
+  testWidgets('member can delete a conversation from their account', (
+    tester,
+  ) async {
+    final api = _FakeCommunityApi();
+    api.conversations.add({
+      'id': 10,
+      'user': {'id': 2, 'display_name': 'ليان', 'role': 'user'},
+      'unread_count': 0,
+      'last_message': 'رسالة محفوظة',
+    });
+    await tester.pumpWidget(_testApp(api));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('الرسائل').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('conversation-menu-10')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حذف المحادثة'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حذف من حسابي'));
+    await tester.pumpAndSettle();
+
+    expect(api.deletedPaths, ['/community/conversations/10?scope=me']);
+    expect(api.conversations, isEmpty);
+    expect(find.text('لا توجد محادثات بعد'), findsOneWidget);
   });
 }

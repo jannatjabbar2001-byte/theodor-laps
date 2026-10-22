@@ -38,7 +38,9 @@ void validateApiBaseUrl() {
     throw StateError('API_BASE_URL is required for production builds.');
   }
   final parsed = Uri.tryParse(apiBaseUrl);
-  if (parsed == null || parsed.host.isEmpty || !{'http', 'https'}.contains(parsed.scheme)) {
+  if (parsed == null ||
+      parsed.host.isEmpty ||
+      !{'http', 'https'}.contains(parsed.scheme)) {
     throw StateError('API_BASE_URL must be a valid HTTP(S) URL.');
   }
   if (isProductionBuild && parsed.scheme != 'https') {
@@ -47,64 +49,121 @@ void validateApiBaseUrl() {
 }
 
 class TheodoreApi {
-  static Future<String> _token() async => (await SharedPreferences.getInstance()).getString('theodore_access_token') ?? '';
+  static Future<String> _token() async =>
+      (await SharedPreferences.getInstance()).getString(
+        'theodore_access_token',
+      ) ??
+      '';
 
   static Future<dynamic> adminGet(String path) async {
-    final response = await http.get(Uri.parse('$apiBaseUrl$path'), headers: {'Authorization': 'Bearer ${await _token()}'}).timeout(const Duration(seconds: 8));
+    final response = await http
+        .get(
+          Uri.parse('$apiBaseUrl$path'),
+          headers: {'Authorization': 'Bearer ${await _token()}'},
+        )
+        .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) throw Exception('request_failed');
     return jsonDecode(response.body);
   }
 
-  static Future<dynamic> adminPut(String path, Map<String, dynamic> body) async {
-    final response = await http.put(Uri.parse('$apiBaseUrl$path'), headers: {'Authorization': 'Bearer ${await _token()}', 'Content-Type': 'application/json'}, body: jsonEncode(body)).timeout(const Duration(seconds: 8));
+  static Future<dynamic> adminPut(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await http
+        .put(
+          Uri.parse('$apiBaseUrl$path'),
+          headers: {
+            'Authorization': 'Bearer ${await _token()}',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) throw Exception('request_failed');
     return jsonDecode(response.body);
   }
 
   static Future<void> adminDelete(String path) async {
-    final response = await http.delete(Uri.parse('$apiBaseUrl$path'), headers: {'Authorization': 'Bearer ${await _token()}'}).timeout(const Duration(seconds: 8));
+    final response = await http
+        .delete(
+          Uri.parse('$apiBaseUrl$path'),
+          headers: {'Authorization': 'Bearer ${await _token()}'},
+        )
+        .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) throw Exception('request_failed');
   }
 
   static Future<List<dynamic>> authenticatedGet(String path) async {
-    final response = await http.get(Uri.parse('$apiBaseUrl$path'), headers: {'Authorization': 'Bearer ${await _token()}'}).timeout(const Duration(seconds: 8));
+    final response = await http
+        .get(
+          Uri.parse('$apiBaseUrl$path'),
+          headers: {'Authorization': 'Bearer ${await _token()}'},
+        )
+        .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) throw Exception('request_failed');
     return jsonDecode(response.body) as List<dynamic>;
   }
 
   static Future<dynamic> communityGet(String path) async {
-    final response = await http.get(
-      Uri.parse('$apiBaseUrl$path'),
-      headers: {'Authorization': 'Bearer ${await _token()}'},
-    ).timeout(const Duration(seconds: 8));
+    final response = await http
+        .get(
+          Uri.parse('$apiBaseUrl$path'),
+          headers: {'Authorization': 'Bearer ${await _token()}'},
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) {
+      throw CommunityRequestException(response.statusCode);
+    }
+    return jsonDecode(response.body);
+  }
+
+  static Future<dynamic> communityPost(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await http
+        .post(
+          Uri.parse('$apiBaseUrl$path'),
+          headers: {
+            'Authorization': 'Bearer ${await _token()}',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) throw Exception('community_request_failed');
     return jsonDecode(response.body);
   }
 
-  static Future<dynamic> communityPost(String path, Map<String, dynamic> body) async {
-    final response = await http.post(
-      Uri.parse('$apiBaseUrl$path'),
-      headers: {
-        'Authorization': 'Bearer ${await _token()}',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 8));
+  static Future<dynamic> communityPut(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await http
+        .put(
+          Uri.parse('$apiBaseUrl$path'),
+          headers: {
+            'Authorization': 'Bearer ${await _token()}',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) throw Exception('community_request_failed');
     return jsonDecode(response.body);
   }
 
-  static Future<dynamic> communityPut(String path, Map<String, dynamic> body) async {
-    final response = await http.put(
-      Uri.parse('$apiBaseUrl$path'),
-      headers: {
-        'Authorization': 'Bearer ${await _token()}',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 8));
-    if (response.statusCode != 200) throw Exception('community_request_failed');
-    return jsonDecode(response.body);
+  static Future<void> communityDelete(String path) async {
+    final response = await http
+        .delete(
+          Uri.parse('$apiBaseUrl$path'),
+          headers: {'Authorization': 'Bearer ${await _token()}'},
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) {
+      throw Exception('community_request_failed');
+    }
   }
 
   static Future<Map<String, String>> communityImageHeaders() async => {
@@ -112,57 +171,94 @@ class TheodoreApi {
   };
 
   static Future<dynamic> communityUploadAvatar(String path, XFile image) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$apiBaseUrl$path'));
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$apiBaseUrl$path'),
+    );
     request.headers['Authorization'] = 'Bearer ${await _token()}';
-    request.files.add(http.MultipartFile.fromBytes(
-      'image',
-      await image.readAsBytes(),
-      filename: image.name,
-    ));
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'image',
+        await image.readAsBytes(),
+        filename: image.name,
+      ),
+    );
     final streamed = await request.send().timeout(const Duration(seconds: 20));
     final response = await http.Response.fromStream(streamed);
-    if (response.statusCode != 200) throw Exception('community_avatar_upload_failed');
+    if (response.statusCode != 200)
+      throw Exception('community_avatar_upload_failed');
     return jsonDecode(response.body);
   }
 
   static Future<String> signedVideoUrl(int videoId) async {
-    final response = await http.get(Uri.parse('$apiBaseUrl/videos/$videoId/url'), headers: {'Authorization': 'Bearer ${await _token()}'}).timeout(const Duration(seconds: 8));
+    final response = await http
+        .get(
+          Uri.parse('$apiBaseUrl/videos/$videoId/url'),
+          headers: {'Authorization': 'Bearer ${await _token()}'},
+        )
+        .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) throw Exception('video_access_denied');
     return (jsonDecode(response.body) as Map<String, dynamic>)['url'] as String;
   }
 
-  static Future<Map<String, dynamic>> login(String username, String password) async {
-    final response = await http.post(
-      Uri.parse('$apiBaseUrl/auth/login'),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: {'username': username, 'password': password},
-    ).timeout(const Duration(seconds: 6));
+  static Future<Map<String, dynamic>> login(
+    String username,
+    String password,
+  ) async {
+    final response = await http
+        .post(
+          Uri.parse('$apiBaseUrl/auth/login'),
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: {'username': username, 'password': password},
+        )
+        .timeout(const Duration(seconds: 6));
     if (response.statusCode != 200) throw Exception('login_failed');
     final token = jsonDecode(response.body) as Map<String, dynamic>;
-    final me = await http.get(Uri.parse('$apiBaseUrl/auth/me'), headers: {'Authorization': 'Bearer ${token['access_token']}'}).timeout(const Duration(seconds: 6));
+    final me = await http
+        .get(
+          Uri.parse('$apiBaseUrl/auth/me'),
+          headers: {'Authorization': 'Bearer ${token['access_token']}'},
+        )
+        .timeout(const Duration(seconds: 6));
     if (me.statusCode != 200) throw Exception('profile_failed');
     return {...token, 'user': jsonDecode(me.body)};
   }
 
-  static Future<Map<String, dynamic>> register({required String username, required String password, String displayName = '', XFile? avatar}) async {
+  static Future<Map<String, dynamic>> register({
+    required String username,
+    required String password,
+    String displayName = '',
+    XFile? avatar,
+  }) async {
     late http.Response response;
     if (avatar == null) {
-      response = await http.post(
-        Uri.parse('$apiBaseUrl/auth/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'username': username, 'password': password, 'display_name': displayName}),
-      ).timeout(const Duration(seconds: 10));
+      response = await http
+          .post(
+            Uri.parse('$apiBaseUrl/auth/register'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'username': username,
+              'password': password,
+              'display_name': displayName,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
     } else {
-      final request = http.MultipartRequest('POST', Uri.parse('$apiBaseUrl/auth/register'))
-        ..fields['username'] = username
-        ..fields['password'] = password
-        ..fields['display_name'] = displayName;
-      request.files.add(http.MultipartFile.fromBytes(
-        'avatar',
-        await avatar.readAsBytes(),
-        filename: avatar.name,
-      ));
-      final streamed = await request.send().timeout(const Duration(seconds: 20));
+      final request =
+          http.MultipartRequest('POST', Uri.parse('$apiBaseUrl/auth/register'))
+            ..fields['username'] = username
+            ..fields['password'] = password
+            ..fields['display_name'] = displayName;
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'avatar',
+          await avatar.readAsBytes(),
+          filename: avatar.name,
+        ),
+      );
+      final streamed = await request.send().timeout(
+        const Duration(seconds: 20),
+      );
       response = await http.Response.fromStream(streamed);
     }
     if (response.statusCode != 200) throw Exception('register_failed');
@@ -201,16 +297,34 @@ class MillionSoundEffects {
 
     for (var i = 0; i < sampleCount; i++) {
       final progress = i / sampleCount;
-      final frequency = frequencies[(progress * frequencies.length).floor().clamp(0, frequencies.length - 1).toInt()];
-      final envelope = math.min(1, i / (sampleRate * .012)) * math.min(1, (sampleCount - i) / (sampleRate * .045));
-      final sample = (math.sin(2 * math.pi * frequency * i / sampleRate) * volume * envelope * 32767).round();
+      final frequency =
+          frequencies[(progress * frequencies.length)
+              .floor()
+              .clamp(0, frequencies.length - 1)
+              .toInt()];
+      final envelope =
+          math.min(1, i / (sampleRate * .012)) *
+          math.min(1, (sampleCount - i) / (sampleRate * .045));
+      final sample =
+          (math.sin(2 * math.pi * frequency * i / sampleRate) *
+                  volume *
+                  envelope *
+                  32767)
+              .round();
       data.setInt16(44 + i * 2, sample, Endian.little);
     }
     return bytes;
   }
 
-  static final correct = tone(frequencies: [523.25, 659.25, 783.99], durationMs: 230);
-  static final wrong = tone(frequencies: [311.13, 233.08], durationMs: 280, volume: .16);
+  static final correct = tone(
+    frequencies: [523.25, 659.25, 783.99],
+    durationMs: 230,
+  );
+  static final wrong = tone(
+    frequencies: [311.13, 233.08],
+    durationMs: 280,
+    volume: .16,
+  );
 }
 
 Future<void> main() async {
@@ -380,12 +494,7 @@ class TheodoreBrand extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Image.asset(
-        '67.png',
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-      ),
+      Image.asset('67.png', width: size, height: size, fit: BoxFit.contain),
     ],
   );
 }
@@ -479,7 +588,9 @@ class _LaunchPageState extends State<LaunchPage> {
                       width: index == currentPage ? 28 : 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: index == currentPage ? burgundy : const Color(0xffcbd6cf),
+                        color: index == currentPage
+                            ? burgundy
+                            : const Color(0xffcbd6cf),
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
@@ -546,7 +657,10 @@ class _OnboardingSlide extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, ink.withValues(alpha: .72)],
+                          colors: [
+                            Colors.transparent,
+                            ink.withValues(alpha: .72),
+                          ],
                         ),
                       ),
                     ),
@@ -566,19 +680,31 @@ class _OnboardingSlide extends StatelessWidget {
             const SizedBox(height: 26),
             Text(
               page.$1,
-              style: TextStyle(color: page.$6, fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: page.$6,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               page.$2,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 29, fontWeight: FontWeight.bold, height: 1.2),
+              style: const TextStyle(
+                fontSize: 29,
+                fontWeight: FontWeight.bold,
+                height: 1.2,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
               page.$3,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: mutedInk, fontSize: 16, height: 1.6),
+              style: const TextStyle(
+                color: mutedInk,
+                fontSize: 16,
+                height: 1.6,
+              ),
             ),
           ],
         ),
@@ -590,7 +716,11 @@ class _OnboardingSlide extends StatelessWidget {
 class Panel extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
-  const Panel({required this.child, this.padding = const EdgeInsets.all(18), super.key});
+  const Panel({
+    required this.child,
+    this.padding = const EdgeInsets.all(18),
+    super.key,
+  });
   @override
   Widget build(BuildContext context) => Container(
     padding: padding,
@@ -599,7 +729,11 @@ class Panel extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       border: Border.all(color: const Color(0xffdfe7e1)),
       boxShadow: const [
-        BoxShadow(color: Color(0x120d3b2e), blurRadius: 22, offset: Offset(0, 8)),
+        BoxShadow(
+          color: Color(0x120d3b2e),
+          blurRadius: 22,
+          offset: Offset(0, 8),
+        ),
       ],
     ),
     child: Material(color: Colors.transparent, child: child),
@@ -658,13 +792,13 @@ class _LoginPageState extends State<LoginPage> {
     }
     if (!mounted) return;
     setState(() {
-        accounts = saved == null
+      accounts = saved == null
           ? []
           : List<Map<String, dynamic>>.from(jsonDecode(saved)).map((account) {
-            final sanitized = Map<String, dynamic>.from(account);
-            sanitized.remove('password');
-            return sanitized;
-          }).toList();
+              final sanitized = Map<String, dynamic>.from(account);
+              sanitized.remove('password');
+              return sanitized;
+            }).toList();
       loadingAccounts = false;
     });
   }
@@ -740,14 +874,19 @@ class _LoginPageState extends State<LoginPage> {
     }
     try {
       final preferences = await SharedPreferences.getInstance();
-      await preferences.setString('million_current_user', username.toLowerCase());
+      await preferences.setString(
+        'million_current_user',
+        username.toLowerCase(),
+      );
     } catch (_) {}
     await Future.delayed(const Duration(milliseconds: 400));
     if (mounted) {
       setState(() => busy = false);
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => HomePage(isManager: isManager, role: role)),
+        MaterialPageRoute(
+          builder: (_) => HomePage(isManager: isManager, role: role),
+        ),
         (_) => false,
       );
     }
@@ -759,7 +898,9 @@ class _LoginPageState extends State<LoginPage> {
     final email = emailController.text.trim().toLowerCase();
     final password = passwordController.text;
     final confirmation = confirmPasswordController.text;
-    final displayName = '${firstNameController.text.trim()} ${secondNameController.text.trim()}'.trim();
+    final displayName =
+        '${firstNameController.text.trim()} ${secondNameController.text.trim()}'
+            .trim();
     if (firstNameController.text.trim().isEmpty ||
         secondNameController.text.trim().isEmpty ||
         emailController.text.trim().isEmpty ||
@@ -811,7 +952,10 @@ class _LoginPageState extends State<LoginPage> {
     final updatedAccounts = [...accounts, newAccount];
     try {
       final preferences = await SharedPreferences.getInstance();
-      await preferences.setString('local_accounts', jsonEncode(updatedAccounts));
+      await preferences.setString(
+        'local_accounts',
+        jsonEncode(updatedAccounts),
+      );
     } catch (_) {
       // Keep the account available for the current session if storage is unavailable.
     }
@@ -839,8 +983,13 @@ class _LoginPageState extends State<LoginPage> {
               const TheodoreBrand(size: 92, compact: true, teal: true),
               const SizedBox(height: 12),
               Text(
-                creatingAccount ? 'أنشئ حسابك التعليمي' : 'مرحبًا بعودتك في تطبيق',
-                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                creatingAccount
+                    ? 'أنشئ حسابك التعليمي'
+                    : 'مرحبًا بعودتك في تطبيق',
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               if (!creatingAccount) ...[
                 const SizedBox(height: 7),
@@ -1032,7 +1181,9 @@ class _LoginPageState extends State<LoginPage> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.add_a_photo_outlined),
-              label: Text(communityAvatar == null ? 'إضافة صورة شخصية' : 'تغيير الصورة'),
+              label: Text(
+                communityAvatar == null ? 'إضافة صورة شخصية' : 'تغيير الصورة',
+              ),
             ),
           ),
         ],
@@ -1071,7 +1222,8 @@ class _LoginPageState extends State<LoginPage> {
             initialDate: DateTime(2010),
             builder: (context, child) => Theme(
               data: Theme.of(context).copyWith(
-                colorScheme: Theme.of(context).colorScheme.copyWith(primary: emerald),
+                colorScheme: Theme.of(context).colorScheme
+                    .copyWith(primary: emerald),
               ),
               child: child!,
             ),
@@ -1116,17 +1268,83 @@ class HomePage extends StatelessWidget {
   final String role;
   const HomePage({this.isManager = false, this.role = 'user', super.key});
   static const items = [
-    ('البرمجة', 'تعلم وبناء المشاريع', Icons.code, emerald, 'asset:assets/images/45.png'),
-    ('المدرسة', 'دروس ومهارات تفاعلية', Icons.school, olive, 'asset:assets/images/school_item.png'),
-    ('المكتبة', 'كتب ومعارف مختارة', Icons.menu_book, Color(0xff3f7568), 'asset:assets/images/3444444444.png'),
-    ('طريق المليون', 'أسئلة وتحديات حتى القمة', Icons.emoji_events, Color(0xffd4a72c), 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=85'),
-    ('الصحة', 'متابعة مؤشراتك الحيوية', Icons.favorite, burgundy, 'https://images.unsplash.com/photo-1576091160550-112173f7f869?auto=format&fit=crop&w=900&q=85'),
-    ('الاستكشاف', 'اكتشف عوالم جديدة', Icons.explore, Color(0xff557c72), 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=85'),
-    ('الإنجازات', 'تابع تقدمك وتطورك', Icons.emoji_events, Color(0xff9b6b2f), 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=900&q=85'),
-    ('المجتمع', 'تواصل وشارك المعرفة', Icons.groups, Color(0xff6b8060), 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=900&q=85'),
-    ('الإعدادات', 'خصص تجربتك', Icons.settings, mutedInk, 'https://images.unsplash.com/photo-1558655146-9f40138edfeb?auto=format&fit=crop&w=900&q=85'),
-    ('عن ثيودور', 'تعرف على المنصة', Icons.info_outline, mutedInk, 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=85'),
-    ('الإدارة', 'لوحة التحكم والصلاحيات', Icons.admin_panel_settings, burgundy, 'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=900&q=85'),
+    (
+      'البرمجة',
+      'تعلم وبناء المشاريع',
+      Icons.code,
+      emerald,
+      'asset:assets/images/45.png',
+    ),
+    (
+      'المدرسة',
+      'دروس ومهارات تفاعلية',
+      Icons.school,
+      olive,
+      'asset:assets/images/school_item.png',
+    ),
+    (
+      'المكتبة',
+      'كتب ومعارف مختارة',
+      Icons.menu_book,
+      Color(0xff3f7568),
+      'asset:assets/images/3444444444.png',
+    ),
+    (
+      'طريق المليون',
+      'أسئلة وتحديات حتى القمة',
+      Icons.emoji_events,
+      Color(0xffd4a72c),
+      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=85',
+    ),
+    (
+      'الصحة',
+      'متابعة مؤشراتك الحيوية',
+      Icons.favorite,
+      burgundy,
+      'https://images.unsplash.com/photo-1576091160550-112173f7f869?auto=format&fit=crop&w=900&q=85',
+    ),
+    (
+      'الاستكشاف',
+      'اكتشف عوالم جديدة',
+      Icons.explore,
+      Color(0xff557c72),
+      'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=85',
+    ),
+    (
+      'الإنجازات',
+      'تابع تقدمك وتطورك',
+      Icons.emoji_events,
+      Color(0xff9b6b2f),
+      'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=900&q=85',
+    ),
+    (
+      'المجتمع',
+      'تواصل وشارك المعرفة',
+      Icons.groups,
+      Color(0xff6b8060),
+      'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=900&q=85',
+    ),
+    (
+      'الإعدادات',
+      'خصص تجربتك',
+      Icons.settings,
+      mutedInk,
+      'https://images.unsplash.com/photo-1558655146-9f40138edfeb?auto=format&fit=crop&w=900&q=85',
+    ),
+    (
+      'عن ثيودور',
+      'تعرف على المنصة',
+      Icons.info_outline,
+      mutedInk,
+      'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=85',
+    ),
+    (
+      'الإدارة',
+      'لوحة التحكم والصلاحيات',
+      Icons.admin_panel_settings,
+      burgundy,
+      'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=900&q=85',
+    ),
   ];
   @override
   Widget build(BuildContext context) => Shell(
@@ -1139,7 +1357,7 @@ class HomePage extends StatelessWidget {
               : width < 900
               ? 3
               : 5;
-            final visibleItems = isManager
+          final visibleItems = isManager
               ? items
               : items.where((item) {
                   if (item.$1 == 'الإدارة') return false;
@@ -1159,7 +1377,9 @@ class HomePage extends StatelessWidget {
                           tooltip: 'رجوع',
                           onPressed: () => Navigator.pushReplacement(
                             context,
-                            MaterialPageRoute(builder: (_) => const LoginPage()),
+                            MaterialPageRoute(
+                              builder: (_) => const LoginPage(),
+                            ),
                           ),
                           icon: const Icon(Icons.arrow_back_rounded),
                         ),
@@ -1176,14 +1396,26 @@ class HomePage extends StatelessWidget {
                           children: [
                             Text(
                               'ثيودور',
-                              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: ink),
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: ink,
+                              ),
                             ),
                             SizedBox(width: 8),
-                            Icon(Icons.apple, color: Color(0xffa8b0bb), size: 25),
+                            Icon(
+                              Icons.apple,
+                              color: Color(0xffa8b0bb),
+                              size: 25,
+                            ),
                             SizedBox(width: 8),
                             Text(
                               '(Theodore)',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: ink),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: ink,
+                              ),
                             ),
                           ],
                         ),
@@ -1197,11 +1429,10 @@ class HomePage extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 sliver: SliverGrid(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) =>
-                        FeatureTile(
-                          item: visibleItems[index],
-                          index: items.indexOf(visibleItems[index]),
-                        ),
+                    (context, index) => FeatureTile(
+                      item: visibleItems[index],
+                      index: items.indexOf(visibleItems[index]),
+                    ),
                     childCount: visibleItems.length,
                   ),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -1266,19 +1497,24 @@ class _FeatureTileState extends State<FeatureTile> {
                   ? Image.asset(
                       widget.item.$5.substring(6),
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _FeatureFallback(item: widget.item),
+                      errorBuilder: (_, __, ___) =>
+                          _FeatureFallback(item: widget.item),
                     )
                   : Image.network(
                       widget.item.$5,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _FeatureFallback(item: widget.item),
+                      errorBuilder: (_, __, ___) =>
+                          _FeatureFallback(item: widget.item),
                     ),
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [widget.item.$4.withValues(alpha: .1), ink.withValues(alpha: .88)],
+                    colors: [
+                      widget.item.$4.withValues(alpha: .1),
+                      ink.withValues(alpha: .88),
+                    ],
                   ),
                 ),
               ),
@@ -1298,9 +1534,22 @@ class _FeatureTileState extends State<FeatureTile> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.item.$1, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                    Text(
+                      widget.item.$1,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 3),
-                    Text(widget.item.$2, style: const TextStyle(color: Color(0xffe2e8f0), fontSize: 11)),
+                    Text(
+                      widget.item.$2,
+                      style: const TextStyle(
+                        color: Color(0xffe2e8f0),
+                        fontSize: 11,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1313,56 +1562,57 @@ class _FeatureTileState extends State<FeatureTile> {
 
   void _openFeature(BuildContext context) {
     if (widget.index == 0) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ProgrammingPage()),
-        );
-      }
-      if (widget.index == 2) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ModernLibraryPage()),
-        );
-      }
-      if (widget.index == 3) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const MillionRoadPage()),
-        );
-      }
-      if (widget.index == 4) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const HealthHubPage()),
-        );
-      }
-      if (widget.index == 5) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ExplorationPage()),
-        );
-      }
-      if (widget.index == 7) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => CommunityPage(
-              onGet: TheodoreApi.communityGet,
-              onPost: TheodoreApi.communityPost,
-              onPut: TheodoreApi.communityPut,
-              onAvatarUpload: TheodoreApi.communityUploadAvatar,
-              onImageHeaders: TheodoreApi.communityImageHeaders,
-              apiBaseUrl: apiBaseUrl,
-            ),
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProgrammingPage()),
+      );
+    }
+    if (widget.index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ModernLibraryPage()),
+      );
+    }
+    if (widget.index == 3) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const MillionRoadPage()),
+      );
+    }
+    if (widget.index == 4) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const HealthHubPage()),
+      );
+    }
+    if (widget.index == 5) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ExplorationPage()),
+      );
+    }
+    if (widget.index == 7) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CommunityPage(
+            onGet: TheodoreApi.communityGet,
+            onPost: TheodoreApi.communityPost,
+            onPut: TheodoreApi.communityPut,
+            onDelete: TheodoreApi.communityDelete,
+            onAvatarUpload: TheodoreApi.communityUploadAvatar,
+            onImageHeaders: TheodoreApi.communityImageHeaders,
+            apiBaseUrl: apiBaseUrl,
           ),
-        );
-      }
-      if (widget.index == 10) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const AdminPage()),
-        );
-      }
+        ),
+      );
+    }
+    if (widget.index == 10) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminPage()),
+      );
+    }
   }
 }
 
@@ -1374,7 +1624,11 @@ class _FeatureFallback extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     color: item.$4,
     child: Center(
-      child: Icon(item.$3, color: Colors.white.withValues(alpha: .82), size: 92),
+      child: Icon(
+        item.$3,
+        color: Colors.white.withValues(alpha: .82),
+        size: 92,
+      ),
     ),
   );
 }
@@ -1451,8 +1705,16 @@ class ComplexNumbersPage extends StatelessWidget {
   const ComplexNumbersPage({super.key});
 
   static const operations = [
-    ('جمع الأعداد المركبة', 'نجمع الحقيقي مع الحقيقي والتخيلي مع التخيلي', Icons.add_circle_outline),
-    ('طرح الأعداد المركبة', 'نحوّل الطرح إلى جمع ثم نغيّر إشارات القوس الثاني', Icons.remove_circle_outline),
+    (
+      'جمع الأعداد المركبة',
+      'نجمع الحقيقي مع الحقيقي والتخيلي مع التخيلي',
+      Icons.add_circle_outline,
+    ),
+    (
+      'طرح الأعداد المركبة',
+      'نحوّل الطرح إلى جمع ثم نغيّر إشارات القوس الثاني',
+      Icons.remove_circle_outline,
+    ),
     ('ضرب الأعداد المركبة', 'نوزّع كل حد ثم نستبدل i² بسالب واحد', Icons.close),
     ('قسمة الأعداد المركبة', 'نتخلص من i في المقام بالمرافق', Icons.functions),
   ];
@@ -1475,7 +1737,7 @@ class ComplexNumbersPage extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 10),
             child: _LearningTile(
               icon: operation.$3,
-                color: operation.$1 == 'جمع الأعداد المركبة'
+              color: operation.$1 == 'جمع الأعداد المركبة'
                   ? emerald
                   : operation.$1 == 'طرح الأعداد المركبة'
                   ? burgundy
@@ -1484,24 +1746,31 @@ class ComplexNumbersPage extends StatelessWidget {
                   : mutedInk,
               title: operation.$1,
               subtitle: operation.$2,
-                enabled: operation.$1 == 'جمع الأعداد المركبة' ||
+              enabled:
+                  operation.$1 == 'جمع الأعداد المركبة' ||
                   operation.$1 == 'طرح الأعداد المركبة' ||
                   operation.$1 == 'ضرب الأعداد المركبة' ||
                   operation.$1 == 'قسمة الأعداد المركبة',
               onTap: operation.$1 == 'جمع الأعداد المركبة'
                   ? () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const ComplexAdditionLessonPage()),
+                      MaterialPageRoute(
+                        builder: (_) => const ComplexAdditionLessonPage(),
+                      ),
                     )
                   : operation.$1 == 'طرح الأعداد المركبة'
                   ? () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const ComplexSubtractionLessonPage()),
+                      MaterialPageRoute(
+                        builder: (_) => const ComplexSubtractionLessonPage(),
+                      ),
                     )
                   : operation.$1 == 'ضرب الأعداد المركبة'
                   ? () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const ComplexMultiplicationLessonPage()),
+                      MaterialPageRoute(
+                        builder: (_) => const ComplexMultiplicationLessonPage(),
+                      ),
                     )
                   : () => Navigator.push(
                       context,
@@ -1524,45 +1793,114 @@ class ComplexDivisionLessonPage extends StatelessWidget {
   Widget build(BuildContext context) => _LearningScaffold(
     title: 'قسمة الأعداد المركبة',
     subtitle: 'دراسة موحدة: خطوة واحدة واضحة في كل مرة',
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const _LessonIllustration(icon: Icons.functions, label: 'إذا رأيت i في المقام، نتخلص منها بالمرافق', color: Color(0xff2563eb)),
-      const SizedBox(height: 14),
-      const Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('ملاحظة عامة للطالب', textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xff1d4ed8))),
-        SizedBox(height: 8),
-        Text('انتبه، إذا تشوف i بالمقام لازم نتخلص منها. نجيب مرافق المقام، يعني نفس الأعداد بس نغير الإشارة اللي بالنص، ونضرب بالمرافق فوق وتحت.', textAlign: TextAlign.center, style: TextStyle(color: mutedInk, height: 1.7)),
-      ])),
-      const SizedBox(height: 14),
-      FilledButton.icon(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ComplexDivisionFirstExamplePage())),
-        style: FilledButton.styleFrom(backgroundColor: const Color(0xff2563eb)),
-        icon: const Icon(Icons.play_arrow_rounded),
-        label: const Text('انطيني مثال'),
-      ),
-    ]),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _LessonIllustration(
+          icon: Icons.functions,
+          label: 'إذا رأيت i في المقام، نتخلص منها بالمرافق',
+          color: Color(0xff2563eb),
+        ),
+        const SizedBox(height: 14),
+        const Panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'ملاحظة عامة للطالب',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xff1d4ed8),
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'انتبه، إذا تشوف i بالمقام لازم نتخلص منها. نجيب مرافق المقام، يعني نفس الأعداد بس نغير الإشارة اللي بالنص، ونضرب بالمرافق فوق وتحت.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: mutedInk, height: 1.7),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        FilledButton.icon(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const ComplexDivisionFirstExamplePage(),
+            ),
+          ),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xff2563eb),
+          ),
+          icon: const Icon(Icons.play_arrow_rounded),
+          label: const Text('انطيني مثال'),
+        ),
+      ],
+    ),
   );
 }
 
 class ComplexDivisionFirstExamplePage extends StatefulWidget {
   const ComplexDivisionFirstExamplePage({super.key});
   @override
-  State<ComplexDivisionFirstExamplePage> createState() => _ComplexDivisionFirstExamplePageState();
+  State<ComplexDivisionFirstExamplePage> createState() =>
+      _ComplexDivisionFirstExamplePageState();
 }
 
-class _ComplexDivisionFirstExamplePageState extends State<ComplexDivisionFirstExamplePage> {
+class _ComplexDivisionFirstExamplePageState
+    extends State<ComplexDivisionFirstExamplePage> {
   int visibleStep = 0;
   bool showMore = false;
 
   static const steps = [
-    ('نكتب الكسر', '(1 + i) / (2 + 4i)', 'لدينا i في المقام، لذلك نحتاج إلى المرافق.'),
-    ('نجيب مرافق المقام', '(2 + 4i)  →  (2 - 4i)', 'نغيّر إشارة الجزء التخيلي فقط، ويبقى 2 كما هو.'),
-    ('نضرب بالمرافق فوق وتحت', '(1 + i) / (2 + 4i)  ×  (2 - 4i) / (2 - 4i)', 'نضرب الكسر الأول بالكسر الثاني، ونستعمل المرافق نفسه فوق وتحت.'),
-    ('نفتح البسط', '2 - 4i + 2i - 4i²', 'كل حد في القوس الأول يضرب كل حد في القوس الثاني.'),
-    ('نفتح المقام', '2² + 4² = 4 + 16 = 20', 'القوسان مترافقان، لذلك يصير المقام عدداً حقيقياً.'),
-    ('نتذكر i²', '-4i² = -4 × -1 = +4', 'تذكر، i² = -1. السالب في السالب يصير موجباً.'),
-    ('نبسط البسط', '2 + 4 - 2i = 6 - 2i', 'نجمع الحقيقي مع الحقيقي، ونترك الجزء التخيلي على اليمين.'),
-    ('نكتب الناتج على 20', '(6 - 2i) / 20', 'العدد الحقيقي 6 على اليسار، والجزء التخيلي -2i على اليمين.'),
-    ('نختصر بخط أخضر', '(6 - 2i) / 20 = (3 - i) / 10', 'نقسم 6 و2 و20 على 2، فتظهر أبسط صورة.'),
+    (
+      'نكتب الكسر',
+      '(1 + i) / (2 + 4i)',
+      'لدينا i في المقام، لذلك نحتاج إلى المرافق.',
+    ),
+    (
+      'نجيب مرافق المقام',
+      '(2 + 4i)  →  (2 - 4i)',
+      'نغيّر إشارة الجزء التخيلي فقط، ويبقى 2 كما هو.',
+    ),
+    (
+      'نضرب بالمرافق فوق وتحت',
+      '(1 + i) / (2 + 4i)  ×  (2 - 4i) / (2 - 4i)',
+      'نضرب الكسر الأول بالكسر الثاني، ونستعمل المرافق نفسه فوق وتحت.',
+    ),
+    (
+      'نفتح البسط',
+      '2 - 4i + 2i - 4i²',
+      'كل حد في القوس الأول يضرب كل حد في القوس الثاني.',
+    ),
+    (
+      'نفتح المقام',
+      '2² + 4² = 4 + 16 = 20',
+      'القوسان مترافقان، لذلك يصير المقام عدداً حقيقياً.',
+    ),
+    (
+      'نتذكر i²',
+      '-4i² = -4 × -1 = +4',
+      'تذكر، i² = -1. السالب في السالب يصير موجباً.',
+    ),
+    (
+      'نبسط البسط',
+      '2 + 4 - 2i = 6 - 2i',
+      'نجمع الحقيقي مع الحقيقي، ونترك الجزء التخيلي على اليمين.',
+    ),
+    (
+      'نكتب الناتج على 20',
+      '(6 - 2i) / 20',
+      'العدد الحقيقي 6 على اليسار، والجزء التخيلي -2i على اليمين.',
+    ),
+    (
+      'نختصر بخط أخضر',
+      '(6 - 2i) / 20 = (3 - i) / 10',
+      'نقسم 6 و2 و20 على 2، فتظهر أبسط صورة.',
+    ),
   ];
 
   @override
@@ -1580,8 +1918,17 @@ class _ComplexDivisionFirstExamplePageState extends State<ComplexDivisionFirstEx
         title: const Text('انتبه'),
         content: const Text('عدنا i بالمقام، تحب أوضحلك ليش نجيب المرافق؟'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('لا، أكمل')),
-          FilledButton(onPressed: () { Navigator.pop(context); setState(() => showMore = true); }, child: const Text('وضحلي')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('لا، أكمل'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => showMore = true);
+            },
+            child: const Text('وضحلي'),
+          ),
         ],
       ),
     );
@@ -1590,92 +1937,237 @@ class _ComplexDivisionFirstExamplePageState extends State<ComplexDivisionFirstEx
   @override
   Widget build(BuildContext context) => _DivisionNotebookScaffold(
     title: 'المثال الأول',
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (showMore) ...[
-        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xffeff6ff), borderRadius: BorderRadius.circular(8)), child: const Text('حبيبي، نجيب المرافق حتى نخلي المقام بدون i.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xff1d4ed8), fontWeight: FontWeight.bold, height: 1.6))),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (showMore) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xffeff6ff),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'حبيبي، نجيب المرافق حتى نخلي المقام بدون i.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xff1d4ed8),
+                fontWeight: FontWeight.bold,
+                height: 1.6,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        _DivisionStepList(steps: steps, visibleStep: visibleStep),
+        const SizedBox(height: 12),
+        _DivisionQuestion(
+          onMore: () => setState(() => showMore = true),
+          onSkip: () => setState(() => showMore = false),
+        ),
         const SizedBox(height: 8),
+        if (visibleStep < steps.length - 1)
+          FilledButton.icon(
+            onPressed: () => setState(() {
+              visibleStep++;
+              showMore = false;
+            }),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xff2563eb),
+            ),
+            icon: const Icon(Icons.arrow_downward_rounded),
+            label: const Text('فهمت، كمل'),
+          )
+        else
+          FilledButton.icon(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ComplexDivisionSecondExamplePage(),
+              ),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xff15803d),
+            ),
+            icon: const Icon(Icons.arrow_forward_rounded),
+            label: const Text('فهمت، إلى المثال الثاني'),
+          ),
+        TextButton.icon(
+          onPressed: () => setState(() {
+            visibleStep = 0;
+            showMore = false;
+          }),
+          icon: const Icon(Icons.replay),
+          label: const Text('أعد المثال'),
+        ),
       ],
-      _DivisionStepList(steps: steps, visibleStep: visibleStep),
-      const SizedBox(height: 12),
-      _DivisionQuestion(onMore: () => setState(() => showMore = true), onSkip: () => setState(() => showMore = false)),
-      const SizedBox(height: 8),
-      if (visibleStep < steps.length - 1)
-        FilledButton.icon(onPressed: () => setState(() { visibleStep++; showMore = false; }), style: FilledButton.styleFrom(backgroundColor: const Color(0xff2563eb)), icon: const Icon(Icons.arrow_downward_rounded), label: const Text('فهمت، كمل'))
-      else
-        FilledButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ComplexDivisionSecondExamplePage())), style: FilledButton.styleFrom(backgroundColor: const Color(0xff15803d)), icon: const Icon(Icons.arrow_forward_rounded), label: const Text('فهمت، إلى المثال الثاني')),
-      TextButton.icon(onPressed: () => setState(() { visibleStep = 0; showMore = false; }), icon: const Icon(Icons.replay), label: const Text('أعد المثال')),
-    ]),
+    ),
   );
 }
 
 class ComplexDivisionSecondExamplePage extends StatefulWidget {
   const ComplexDivisionSecondExamplePage({super.key});
   @override
-  State<ComplexDivisionSecondExamplePage> createState() => _ComplexDivisionSecondExamplePageState();
+  State<ComplexDivisionSecondExamplePage> createState() =>
+      _ComplexDivisionSecondExamplePageState();
 }
 
-class _ComplexDivisionSecondExamplePageState extends State<ComplexDivisionSecondExamplePage> {
+class _ComplexDivisionSecondExamplePageState
+    extends State<ComplexDivisionSecondExamplePage> {
   int visibleStep = 0;
   static const steps = [
     ('نكتب المثال', '(1 + √3i) / (1 - √3i)', 'نجيب مرافق المقام: (1 + √3i).'),
-    ('نضرب فوق وتحت', '(1 + √3i) / (1 - √3i)  ×  (1 + √3i) / (1 + √3i)', 'فتح الأقواس يكون خطوة خطوة.'),
-    ('نبسط المقام', '1² + (√3)² = 1 + 3 = 4', 'هنا ظهر 1 + 3 = 4 لأن (√3)² = 3.'),
-    ('نفتح البسط', '1 + 2√3i + 3i²', 'نضرب الأول في الأول، ثم الحدين الأوسطين، ثم الأخيرين.'),
+    (
+      'نضرب فوق وتحت',
+      '(1 + √3i) / (1 - √3i)  ×  (1 + √3i) / (1 + √3i)',
+      'فتح الأقواس يكون خطوة خطوة.',
+    ),
+    (
+      'نبسط المقام',
+      '1² + (√3)² = 1 + 3 = 4',
+      'هنا ظهر 1 + 3 = 4 لأن (√3)² = 3.',
+    ),
+    (
+      'نفتح البسط',
+      '1 + 2√3i + 3i²',
+      'نضرب الأول في الأول، ثم الحدين الأوسطين، ثم الأخيرين.',
+    ),
     ('نبدل i²', '1 + 2√3i + 3(-1) = -2 + 2√3i', 'تذكر، i² = -1.'),
-    ('الناتج المرتب', '(-2 + 2√3i) / 4 = -1/2 + (√3/2)i', 'الحقيقي على اليسار، والتخيلي على اليمين. هذه هي الصورة الصحيحة للمثال.'),
+    (
+      'الناتج المرتب',
+      '(-2 + 2√3i) / 4 = -1/2 + (√3/2)i',
+      'الحقيقي على اليسار، والتخيلي على اليمين. هذه هي الصورة الصحيحة للمثال.',
+    ),
   ];
 
   @override
   Widget build(BuildContext context) => _DivisionNotebookScaffold(
     title: 'المثال الثاني',
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _DivisionStepList(steps: steps, visibleStep: visibleStep),
-      const SizedBox(height: 12),
-      _DivisionQuestion(onMore: () {}, onSkip: () {}),
-      const SizedBox(height: 8),
-      if (visibleStep < steps.length - 1)
-        FilledButton.icon(onPressed: () => setState(() => visibleStep++), style: FilledButton.styleFrom(backgroundColor: const Color(0xff2563eb)), icon: const Icon(Icons.arrow_downward_rounded), label: const Text('فهمت، كمل'))
-      else
-        FilledButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ComplexDivisionHomeworkPage())), style: FilledButton.styleFrom(backgroundColor: const Color(0xff15803d)), icon: const Icon(Icons.arrow_forward_rounded), label: const Text('فهمت، إلى الواجب البيتي')),
-      TextButton.icon(onPressed: () => setState(() => visibleStep = 0), icon: const Icon(Icons.replay), label: const Text('أعد المثال')),
-    ]),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _DivisionStepList(steps: steps, visibleStep: visibleStep),
+        const SizedBox(height: 12),
+        _DivisionQuestion(onMore: () {}, onSkip: () {}),
+        const SizedBox(height: 8),
+        if (visibleStep < steps.length - 1)
+          FilledButton.icon(
+            onPressed: () => setState(() => visibleStep++),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xff2563eb),
+            ),
+            icon: const Icon(Icons.arrow_downward_rounded),
+            label: const Text('فهمت، كمل'),
+          )
+        else
+          FilledButton.icon(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ComplexDivisionHomeworkPage(),
+              ),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xff15803d),
+            ),
+            icon: const Icon(Icons.arrow_forward_rounded),
+            label: const Text('فهمت، إلى الواجب البيتي'),
+          ),
+        TextButton.icon(
+          onPressed: () => setState(() => visibleStep = 0),
+          icon: const Icon(Icons.replay),
+          label: const Text('أعد المثال'),
+        ),
+      ],
+    ),
   );
 }
 
 class ComplexDivisionHomeworkPage extends StatefulWidget {
   const ComplexDivisionHomeworkPage({super.key});
   @override
-  State<ComplexDivisionHomeworkPage> createState() => _ComplexDivisionHomeworkPageState();
+  State<ComplexDivisionHomeworkPage> createState() =>
+      _ComplexDivisionHomeworkPageState();
 }
 
-class _ComplexDivisionHomeworkPageState extends State<ComplexDivisionHomeworkPage> {
+class _ComplexDivisionHomeworkPageState
+    extends State<ComplexDivisionHomeworkPage> {
   int visibleStep = 0;
   static const steps = [
     ('المسألة', '(2√3i) / (2 + 4i)', 'نجيب مرافق المقام: (2 - 4i).'),
-    ('نضرب فوق وتحت', '((2√3i)(2 - 4i)) / ((2 + 4i)(2 - 4i))', 'نستعمل المرافق نفسه في البسط والمقام.'),
+    (
+      'نضرب فوق وتحت',
+      '((2√3i)(2 - 4i)) / ((2 + 4i)(2 - 4i))',
+      'نستعمل المرافق نفسه في البسط والمقام.',
+    ),
     ('تذكير', 'i² = -1', 'راقب الحد الذي فيه i × i.'),
-    ('أكمل بنفسك', '____________________________', 'رتب الحقيقي على اليسار والتخيلي على اليمين.'),
+    (
+      'أكمل بنفسك',
+      '____________________________',
+      'رتب الحقيقي على اليسار والتخيلي على اليمين.',
+    ),
   ];
 
   @override
   Widget build(BuildContext context) => _DivisionNotebookScaffold(
     title: 'واجب بيتي',
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _DivisionStepList(steps: steps, visibleStep: visibleStep),
-      const SizedBox(height: 12),
-      _DivisionQuestion(onMore: () {}, onSkip: () {}),
-      const SizedBox(height: 10),
-      Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
-        FilledButton.icon(onPressed: () => setState(() => visibleStep = math.min(visibleStep + 1, steps.length - 1)), style: FilledButton.styleFrom(backgroundColor: const Color(0xff2563eb)), icon: const Icon(Icons.help_outline), label: const Text('وضحلي')),
-        OutlinedButton.icon(onPressed: () => setState(() => visibleStep = math.min(visibleStep + 1, steps.length - 1)), icon: const Icon(Icons.skip_next), label: const Text('تخطي')),
-      ]),
-      const SizedBox(height: 10),
-      Row(children: [
-        Expanded(child: FilledButton.icon(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أحسنت، راجع المرافق ثم أكمل خطوة خطوة.'))), icon: const Icon(Icons.check), label: const Text('فهمت الحل'))),
-        const SizedBox(width: 8),
-        Expanded(child: OutlinedButton.icon(onPressed: () => setState(() => visibleStep = 0), icon: const Icon(Icons.edit), label: const Text('أريد أحله بنفسي'))),
-      ]),
-    ]),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _DivisionStepList(steps: steps, visibleStep: visibleStep),
+        const SizedBox(height: 12),
+        _DivisionQuestion(onMore: () {}, onSkip: () {}),
+        const SizedBox(height: 10),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.icon(
+              onPressed: () => setState(
+                () => visibleStep = math.min(visibleStep + 1, steps.length - 1),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xff2563eb),
+              ),
+              icon: const Icon(Icons.help_outline),
+              label: const Text('وضحلي'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => setState(
+                () => visibleStep = math.min(visibleStep + 1, steps.length - 1),
+              ),
+              icon: const Icon(Icons.skip_next),
+              label: const Text('تخطي'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('أحسنت، راجع المرافق ثم أكمل خطوة خطوة.'),
+                  ),
+                ),
+                icon: const Icon(Icons.check),
+                label: const Text('فهمت الحل'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => setState(() => visibleStep = 0),
+                icon: const Icon(Icons.edit),
+                label: const Text('أريد أحله بنفسي'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
   );
 }
 
@@ -1684,15 +2176,28 @@ class _DivisionNotebookScaffold extends StatelessWidget {
   final Widget child;
   const _DivisionNotebookScaffold({required this.title, required this.child});
   @override
-  Widget build(BuildContext context) => _LearningScaffold(title: 'قسمة الأعداد المركبة', subtitle: title, child: Panel(child: CustomPaint(painter: _DivisionPaperPainter(), child: Padding(padding: const EdgeInsets.all(16), child: child))));
+  Widget build(BuildContext context) => _LearningScaffold(
+    title: 'قسمة الأعداد المركبة',
+    subtitle: title,
+    child: Panel(
+      child: CustomPaint(
+        painter: _DivisionPaperPainter(),
+        child: Padding(padding: const EdgeInsets.all(16), child: child),
+      ),
+    ),
+  );
 }
 
 class _DivisionPaperPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xff93c5fd).withValues(alpha: .2)..strokeWidth = 1;
-    for (var y = 20.0; y < size.height; y += 34) canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    final paint = Paint()
+      ..color = const Color(0xff93c5fd).withValues(alpha: .2)
+      ..strokeWidth = 1;
+    for (var y = 20.0; y < size.height; y += 34)
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
@@ -1702,18 +2207,64 @@ class _DivisionStepList extends StatelessWidget {
   final int visibleStep;
   const _DivisionStepList({required this.steps, required this.visibleStep});
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: List.generate(visibleStep + 1, (index) {
-    final item = steps[index];
-    final isGreen = index == steps.length - 1 || item.$1.contains('اختصر') || item.$1.contains('الناتج');
-    return Padding(padding: const EdgeInsets.only(bottom: 14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (index > 0) const Align(alignment: Alignment.centerRight, child: Icon(Icons.arrow_downward_rounded, color: Color(0xff64748b), size: 20)),
-      Text(item.$1, textAlign: TextAlign.right, style: TextStyle(color: isGreen ? const Color(0xff15803d) : const Color(0xff2563eb), fontWeight: FontWeight.bold)),
-      const SizedBox(height: 4),
-      _DivisionMathLine(text: item.$2, color: isGreen ? const Color(0xff15803d) : const Color(0xff334155)),
-      Text(item.$3, textAlign: TextAlign.center, style: const TextStyle(color: mutedInk, height: 1.5)),
-      if (item.$2.contains('i²')) const Text('↑ تذكر، i² = -1', textAlign: TextAlign.center, style: TextStyle(color: Color(0xffb91c1c), fontWeight: FontWeight.bold)),
-    ]));
-  }));
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: List.generate(visibleStep + 1, (index) {
+      final item = steps[index];
+      final isGreen =
+          index == steps.length - 1 ||
+          item.$1.contains('اختصر') ||
+          item.$1.contains('الناتج');
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (index > 0)
+              const Align(
+                alignment: Alignment.centerRight,
+                child: Icon(
+                  Icons.arrow_downward_rounded,
+                  color: Color(0xff64748b),
+                  size: 20,
+                ),
+              ),
+            Text(
+              item.$1,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: isGreen
+                    ? const Color(0xff15803d)
+                    : const Color(0xff2563eb),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            _DivisionMathLine(
+              text: item.$2,
+              color: isGreen
+                  ? const Color(0xff15803d)
+                  : const Color(0xff334155),
+            ),
+            Text(
+              item.$3,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: mutedInk, height: 1.5),
+            ),
+            if (item.$2.contains('i²'))
+              const Text(
+                '↑ تذكر، i² = -1',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xffb91c1c),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+          ],
+        ),
+      );
+    }),
+  );
 }
 
 class _DivisionMathLine extends StatelessWidget {
@@ -1731,10 +2282,21 @@ class _DivisionMathLine extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-          for (var index = 0; index < parts.length; index++) ...[
-            _DivisionFraction(text: parts[index].trim(), color: color),
-            if (index < parts.length - 1) Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('×', style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.bold))),
-          ],
+            for (var index = 0; index < parts.length; index++) ...[
+              _DivisionFraction(text: parts[index].trim(), color: color),
+              if (index < parts.length - 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    '×',
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
           ],
         ),
       );
@@ -1752,25 +2314,84 @@ class _DivisionFraction extends StatelessWidget {
   Widget build(BuildContext context) {
     final slashIndex = text.indexOf(' / ');
     if (slashIndex == -1) {
-      return Directionality(textDirection: TextDirection.ltr, child: Text(text, textAlign: TextAlign.center, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold, height: 1.5)));
+      return Directionality(
+        textDirection: TextDirection.ltr,
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: color,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            height: 1.5,
+          ),
+        ),
+      );
     }
 
     final numerator = text.substring(0, slashIndex).trim();
     final remainder = text.substring(slashIndex + 3).trim();
     final equalsIndex = remainder.indexOf(' = ');
-    final denominator = equalsIndex == -1 ? remainder : remainder.substring(0, equalsIndex).trim();
-    final afterFraction = equalsIndex == -1 ? null : remainder.substring(equalsIndex + 3).trim();
+    final denominator = equalsIndex == -1
+        ? remainder
+        : remainder.substring(0, equalsIndex).trim();
+    final afterFraction = equalsIndex == -1
+        ? null
+        : remainder.substring(equalsIndex + 3).trim();
 
     return IntrinsicWidth(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Directionality(textDirection: TextDirection.ltr, child: Text(numerator, textAlign: TextAlign.center, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold, height: 1.35))),
-        Container(height: 2, margin: const EdgeInsets.symmetric(vertical: 3), color: color),
-        Directionality(textDirection: TextDirection.ltr, child: Text(denominator, textAlign: TextAlign.center, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold, height: 1.35))),
-        if (afterFraction != null) ...[
-          const SizedBox(height: 4),
-          Directionality(textDirection: TextDirection.ltr, child: Text('= $afterFraction', textAlign: TextAlign.center, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold, height: 1.35))),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Text(
+              numerator,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: color,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                height: 1.35,
+              ),
+            ),
+          ),
+          Container(
+            height: 2,
+            margin: const EdgeInsets.symmetric(vertical: 3),
+            color: color,
+          ),
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Text(
+              denominator,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: color,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                height: 1.35,
+              ),
+            ),
+          ),
+          if (afterFraction != null) ...[
+            const SizedBox(height: 4),
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Text(
+                '= $afterFraction',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
         ],
-      ]),
+      ),
     );
   }
 }
@@ -1780,18 +2401,27 @@ class _DivisionQuestion extends StatelessWidget {
   final VoidCallback onSkip;
   const _DivisionQuestion({required this.onMore, required this.onSkip});
   @override
-  Widget build(BuildContext context) => Row(children: [
-    const Expanded(child: Text('تريد أوضح أكثر لو أكمل؟', textAlign: TextAlign.center, style: TextStyle(color: mutedInk, fontWeight: FontWeight.bold))),
-    TextButton(onPressed: onMore, child: const Text('وضحلي')),
-    TextButton(onPressed: onSkip, child: const Text('تخطي')),
-  ]);
+  Widget build(BuildContext context) => Row(
+    children: [
+      const Expanded(
+        child: Text(
+          'تريد أوضح أكثر لو أكمل؟',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: mutedInk, fontWeight: FontWeight.bold),
+        ),
+      ),
+      TextButton(onPressed: onMore, child: const Text('وضحلي')),
+      TextButton(onPressed: onSkip, child: const Text('تخطي')),
+    ],
+  );
 }
 
 class ComplexAdditionLessonPage extends StatefulWidget {
   const ComplexAdditionLessonPage({super.key});
 
   @override
-  State<ComplexAdditionLessonPage> createState() => _ComplexAdditionLessonPageState();
+  State<ComplexAdditionLessonPage> createState() =>
+      _ComplexAdditionLessonPageState();
 }
 
 class _ComplexAdditionLessonPageState extends State<ComplexAdditionLessonPage> {
@@ -1799,17 +2429,17 @@ class _ComplexAdditionLessonPageState extends State<ComplexAdditionLessonPage> {
     (
       'رتّب العددين أولاً',
       'نكتب كل عدد مركب داخل قوسين على صورة (الحقيقي + التخيلي). يبقى الجزء الحقيقي يساراً والجزء التخيلي يميناً.',
-      'الصورة المرتبة تجعل كل جزء في مكانه: (a + bi).'
+      'الصورة المرتبة تجعل كل جزء في مكانه: (a + bi).',
     ),
     (
       'اجمع الأجزاء المتشابهة فقط',
       'نجمع العددين الحقيقيين معاً، ثم نجمع العددين التخيليين معاً. لا نخلط الحقيقي بالتخيلي.',
-      'الحقيقي مع الحقيقي، والتخيلي مع التخيلي؛ لأنهما نوعان مختلفان من الأجزاء.'
+      'الحقيقي مع الحقيقي، والتخيلي مع التخيلي؛ لأنهما نوعان مختلفان من الأجزاء.',
     ),
     (
       'انتبه إلى الإشارات والأقواس',
       'إذا سبقت قيمة الجزء علامة سالبة، تبقى الإشارة مع القيمة داخل القوس حتى ننفذ الجمع.',
-      'الأقواس تحفظ إشارة كل جزء وتمنع إسقاط السالب أثناء الحل.'
+      'الأقواس تحفظ إشارة كل جزء وتمنع إسقاط السالب أثناء الحل.',
     ),
   ];
 
@@ -1859,22 +2489,27 @@ class _ComplexAdditionLessonPageState extends State<ComplexAdditionLessonPage> {
           subtitle: 'أكمل الملاحظات بالترتيب قبل الانتقال إلى الأمثلة',
         ),
         const SizedBox(height: 16),
-        ...List.generate(notes.length, (index) => _NoteCard(
-          number: index + 1,
-          title: notes[index].$1,
-          body: notes[index].$2,
-          simplerBody: notes[index].$3,
-          isSimpler: simplerNotes.contains(index),
-          isDone: understoodNotes > index,
-          onUnderstood: () => markNote(index, true),
-          onNotUnderstood: () => markNote(index, false),
-        )),
+        ...List.generate(
+          notes.length,
+          (index) => _NoteCard(
+            number: index + 1,
+            title: notes[index].$1,
+            body: notes[index].$2,
+            simplerBody: notes[index].$3,
+            isSimpler: simplerNotes.contains(index),
+            isDone: understoodNotes > index,
+            onUnderstood: () => markNote(index, true),
+            onNotUnderstood: () => markNote(index, false),
+          ),
+        ),
         const SizedBox(height: 8),
         FilledButton.icon(
           onPressed: understoodNotes == notes.length
               ? () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ComplexAdditionExamplesPage()),
+                  MaterialPageRoute(
+                    builder: (_) => const ComplexAdditionExamplesPage(),
+                  ),
                 )
               : null,
           icon: const Icon(Icons.play_arrow_rounded),
@@ -1889,10 +2524,12 @@ class ComplexAdditionExamplesPage extends StatefulWidget {
   const ComplexAdditionExamplesPage({super.key});
 
   @override
-  State<ComplexAdditionExamplesPage> createState() => _ComplexAdditionExamplesPageState();
+  State<ComplexAdditionExamplesPage> createState() =>
+      _ComplexAdditionExamplesPageState();
 }
 
-class _ComplexAdditionExamplesPageState extends State<ComplexAdditionExamplesPage> {
+class _ComplexAdditionExamplesPageState
+    extends State<ComplexAdditionExamplesPage> {
   int currentExample = 0;
   bool allExamplesDone = false;
   bool showSkillHelp = false;
@@ -1910,7 +2547,10 @@ class _ComplexAdditionExamplesPageState extends State<ComplexAdditionExamplesPag
           color: burgundy,
         ),
         const SizedBox(height: 14),
-        _ExampleProgress(currentExample: currentExample, completed: allExamplesDone),
+        _ExampleProgress(
+          currentExample: currentExample,
+          completed: allExamplesDone,
+        ),
         const SizedBox(height: 14),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 480),
@@ -1918,7 +2558,10 @@ class _ComplexAdditionExamplesPageState extends State<ComplexAdditionExamplesPag
           transitionBuilder: (child, animation) => FadeTransition(
             opacity: animation,
             child: SlideTransition(
-              position: Tween<Offset>(begin: const Offset(.08, 0), end: Offset.zero).animate(animation),
+              position: Tween<Offset>(
+                begin: const Offset(.08, 0),
+                end: Offset.zero,
+              ).animate(animation),
               child: child,
             ),
           ),
@@ -1926,20 +2569,56 @@ class _ComplexAdditionExamplesPageState extends State<ComplexAdditionExamplesPag
               ? const _ExamplesCompleted(key: ValueKey('examples-completed'))
               : _AdditionExampleCard(
                   key: ValueKey(currentExample),
-                  title: currentExample == 0 ? 'المثال الأول' : 'المثال الثاني مع الإشارات',
-                  expression: currentExample == 0 ? '(3 + 2i) + (5 + 4i)' : '(-4 + 3i) + (7 - 5i)',
+                  title: currentExample == 0
+                      ? 'المثال الأول'
+                      : 'المثال الثاني مع الإشارات',
+                  expression: currentExample == 0
+                      ? '(3 + 2i) + (5 + 4i)'
+                      : '(-4 + 3i) + (7 - 5i)',
                   steps: currentExample == 0
                       ? const [
-                          ('نحافظ على الأقواس ونفصل النوعين', '(3 + 2i) + (5 + 4i)', 'حتى تبقى إشارة كل جزء واضحة.'),
-                          ('نجمع الحقيقي مع الحقيقي', '3 + 5 = 8', 'لأن 3 و5 جزءان حقيقيان.'),
-                          ('نجمع التخيلي مع التخيلي', '2i + 4i = 6i', 'لأن 2i و4i يحملان الوحدة التخيلية نفسها i.'),
-                          ('نكتب الناتج بالترتيب الصحيح', '8 + 6i', 'الحقيقي دائماً على اليسار والتخيلي على اليمين.'),
+                          (
+                            'نحافظ على الأقواس ونفصل النوعين',
+                            '(3 + 2i) + (5 + 4i)',
+                            'حتى تبقى إشارة كل جزء واضحة.',
+                          ),
+                          (
+                            'نجمع الحقيقي مع الحقيقي',
+                            '3 + 5 = 8',
+                            'لأن 3 و5 جزءان حقيقيان.',
+                          ),
+                          (
+                            'نجمع التخيلي مع التخيلي',
+                            '2i + 4i = 6i',
+                            'لأن 2i و4i يحملان الوحدة التخيلية نفسها i.',
+                          ),
+                          (
+                            'نكتب الناتج بالترتيب الصحيح',
+                            '8 + 6i',
+                            'الحقيقي دائماً على اليسار والتخيلي على اليمين.',
+                          ),
                         ]
                       : const [
-                          ('نحافظ على الأقواس والإشارات', '(-4 + 3i) + (7 - 5i)', 'حتى لا نفقد الإشارة السالبة في أي جزء.'),
-                          ('نجمع الحقيقي مع الحقيقي', '-4 + 7 = 3', 'الإشارة السالبة جزء من العدد الحقيقي الأول.'),
-                          ('نجمع التخيلي مع التخيلي', '3i + (-5i) = -2i', 'الإشارتان تحددان أن الناتج التخيلي سالب.'),
-                          ('نكتب الناتج بالترتيب الصحيح', '3 - 2i', 'الحقيقي بقي يساراً والتخيلي بقي يميناً.'),
+                          (
+                            'نحافظ على الأقواس والإشارات',
+                            '(-4 + 3i) + (7 - 5i)',
+                            'حتى لا نفقد الإشارة السالبة في أي جزء.',
+                          ),
+                          (
+                            'نجمع الحقيقي مع الحقيقي',
+                            '-4 + 7 = 3',
+                            'الإشارة السالبة جزء من العدد الحقيقي الأول.',
+                          ),
+                          (
+                            'نجمع التخيلي مع التخيلي',
+                            '3i + (-5i) = -2i',
+                            'الإشارتان تحددان أن الناتج التخيلي سالب.',
+                          ),
+                          (
+                            'نكتب الناتج بالترتيب الصحيح',
+                            '3 - 2i',
+                            'الحقيقي بقي يساراً والتخيلي بقي يميناً.',
+                          ),
                         ],
                   isLastExample: currentExample == 1,
                   onSkillHelp: () => setState(() => showSkillHelp = true),
@@ -1959,9 +2638,14 @@ class _ComplexAdditionExamplesPageState extends State<ComplexAdditionExamplesPag
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('شرح المهارة الأساسية', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                Text(
+                  'شرح المهارة الأساسية',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                ),
                 SizedBox(height: 8),
-                Text('في الجمع لا نحتاج إلى القسمة الطويلة أو تبسيط الكسور. نرتب الأجزاء، ثم نجمع القيم ذات النوع نفسه فقط، ونعود مباشرة إلى إكمال المثال.'),
+                Text(
+                  'في الجمع لا نحتاج إلى القسمة الطويلة أو تبسيط الكسور. نرتب الأجزاء، ثم نجمع القيم ذات النوع نفسه فقط، ونعود مباشرة إلى إكمال المثال.',
+                ),
               ],
             ),
           ),
@@ -1984,9 +2668,15 @@ class PlaceholderLessonPage extends StatelessWidget {
         children: [
           Icon(Icons.construction_outlined, size: 54, color: mutedInk),
           SizedBox(height: 14),
-          Text('قيد التطوير', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Text(
+            'قيد التطوير',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
           SizedBox(height: 8),
-          Text('سيضاف هذا الدرس بنفس البنية التفاعلية قريباً.', textAlign: TextAlign.center),
+          Text(
+            'سيضاف هذا الدرس بنفس البنية التفاعلية قريباً.',
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     ),
@@ -1997,30 +2687,32 @@ class ComplexSubtractionLessonPage extends StatefulWidget {
   const ComplexSubtractionLessonPage({super.key});
 
   @override
-  State<ComplexSubtractionLessonPage> createState() => _ComplexSubtractionLessonPageState();
+  State<ComplexSubtractionLessonPage> createState() =>
+      _ComplexSubtractionLessonPageState();
 }
 
-class _ComplexSubtractionLessonPageState extends State<ComplexSubtractionLessonPage> {
+class _ComplexSubtractionLessonPageState
+    extends State<ComplexSubtractionLessonPage> {
   static const notes = [
     (
       'نزل القوس الأول كما هو',
       'نكتب العدد المركب الأول داخل قوسيه من دون تغيير أي إشارة.',
-      'القوس الأول يبقى كما هو: (a + bi).'
+      'القوس الأول يبقى كما هو: (a + bi).',
     ),
     (
       'حوّل إشارة الطرح إلى جمع',
       'نستبدل علامة الطرح بين القوسين بعلامة جمع حتى نطبق قاعدة جمع الأعداد المركبة.',
-      'بدل (الأول) - (الثاني) نكتب (الأول) + (الثاني بعد تغيير إشاراته).'
+      'بدل (الأول) - (الثاني) نكتب (الأول) + (الثاني بعد تغيير إشاراته).',
     ),
     (
       'غيّر إشارات القوس الثاني كلها',
       'نغيّر إشارة الجزء الحقيقي وإشارة الجزء التخيلي في القوس الثاني، ثم نجمع الحقيقي مع الحقيقي والتخيلي مع التخيلي.',
-      'السالب أمام القوس يقلب الإشارتين: الموجب يصبح سالباً والسالب يصبح موجباً.'
+      'السالب أمام القوس يقلب الإشارتين: الموجب يصبح سالباً والسالب يصبح موجباً.',
     ),
     (
       'حافظ على الشكل القياسي',
       'نكتب الناتج النهائي بحيث يكون العدد الحقيقي على اليسار والجزء التخيلي على اليمين مع إبقاء الإشارات واضحة.',
-      'الشكل القياسي دائماً: الحقيقي ثم التخيلي، مثل -1 - 2i أو 8 + 7i.'
+      'الشكل القياسي دائماً: الحقيقي ثم التخيلي، مثل -1 - 2i أو 8 + 7i.',
     ),
   ];
 
@@ -2047,8 +2739,12 @@ class _ComplexSubtractionLessonPageState extends State<ComplexSubtractionLessonP
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _LessonIllustration(
-          icon: understoodNotes == notes.length ? Icons.auto_awesome_rounded : Icons.lightbulb_outline_rounded,
-          label: understoodNotes == notes.length ? 'أحسنت، طبّق القاعدة الآن' : 'نحوّل الطرح إلى جمع بذكاء',
+          icon: understoodNotes == notes.length
+              ? Icons.auto_awesome_rounded
+              : Icons.lightbulb_outline_rounded,
+          label: understoodNotes == notes.length
+              ? 'أحسنت، طبّق القاعدة الآن'
+              : 'نحوّل الطرح إلى جمع بذكاء',
           color: burgundy,
         ),
         const SizedBox(height: 14),
@@ -2061,22 +2757,27 @@ class _ComplexSubtractionLessonPageState extends State<ComplexSubtractionLessonP
         const SizedBox(height: 16),
         const _SubtractionRuleMap(),
         const SizedBox(height: 18),
-        ...List.generate(notes.length, (index) => _NoteCard(
-          number: index + 1,
-          title: notes[index].$1,
-          body: notes[index].$2,
-          simplerBody: notes[index].$3,
-          isSimpler: simplerNotes.contains(index),
-          isDone: understoodNotes > index,
-          onUnderstood: () => markNote(index, true),
-          onNotUnderstood: () => markNote(index, false),
-        )),
+        ...List.generate(
+          notes.length,
+          (index) => _NoteCard(
+            number: index + 1,
+            title: notes[index].$1,
+            body: notes[index].$2,
+            simplerBody: notes[index].$3,
+            isSimpler: simplerNotes.contains(index),
+            isDone: understoodNotes > index,
+            onUnderstood: () => markNote(index, true),
+            onNotUnderstood: () => markNote(index, false),
+          ),
+        ),
         const SizedBox(height: 8),
         FilledButton.icon(
           onPressed: understoodNotes == notes.length
               ? () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ComplexSubtractionExamplesPage()),
+                  MaterialPageRoute(
+                    builder: (_) => const ComplexSubtractionExamplesPage(),
+                  ),
                 )
               : null,
           style: FilledButton.styleFrom(backgroundColor: burgundy),
@@ -2104,11 +2805,18 @@ class _SubtractionRuleMap extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Row(children: [
-          Icon(Icons.account_tree_outlined, color: burgundy),
-          SizedBox(width: 8),
-          Expanded(child: Text('خريطة حل الطرح', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-        ]),
+        const Row(
+          children: [
+            Icon(Icons.account_tree_outlined, color: burgundy),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'خريطة حل الطرح',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         ...List.generate(steps.length, (index) {
           final step = steps[index];
@@ -2117,29 +2825,60 @@ class _SubtractionRuleMap extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: index.isEven ? const Color(0xfffff8f5) : const Color(0xfff5f9ff),
+                  color: index.isEven
+                      ? const Color(0xfffff8f5)
+                      : const Color(0xfff5f9ff),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: burgundy.withValues(alpha: .16)),
                 ),
-                child: Row(children: [
-                  CircleAvatar(radius: 17, backgroundColor: burgundy, foregroundColor: Colors.white, child: Text(step.$1)),
-                  const SizedBox(width: 10),
-                  Icon(step.$4, color: burgundy, size: 24),
-                  const SizedBox(width: 8),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(step.$2, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
-                    const SizedBox(height: 4),
-                    Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Text(step.$3, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: burgundy)),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 17,
+                      backgroundColor: burgundy,
+                      foregroundColor: Colors.white,
+                      child: Text(step.$1),
                     ),
-                  ])),
-                ]),
+                    const SizedBox(width: 10),
+                    Icon(step.$4, color: burgundy, size: 24),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            step.$2,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: ink,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Text(
+                              step.$3,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: burgundy,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               if (index < steps.length - 1)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 3),
-                  child: Icon(Icons.arrow_downward_rounded, color: burgundy, size: 22),
+                  child: Icon(
+                    Icons.arrow_downward_rounded,
+                    color: burgundy,
+                    size: 22,
+                  ),
                 ),
             ],
           );
@@ -2159,29 +2898,75 @@ class ComplexSubtractionExamplesPage extends StatefulWidget {
   const ComplexSubtractionExamplesPage({super.key});
 
   @override
-  State<ComplexSubtractionExamplesPage> createState() => _ComplexSubtractionExamplesPageState();
+  State<ComplexSubtractionExamplesPage> createState() =>
+      _ComplexSubtractionExamplesPageState();
 }
 
-class _ComplexSubtractionExamplesPageState extends State<ComplexSubtractionExamplesPage> {
+class _ComplexSubtractionExamplesPageState
+    extends State<ComplexSubtractionExamplesPage> {
   int currentExample = 0;
   bool allExamplesDone = false;
 
   static const firstSteps = [
-    ('ننزل القوس الأول كما هو', '(4 + 2i) - (5 + 4i)', 'لا نغيّر العدد الأول أو إشاراته.'),
-    ('نحوّل الطرح إلى جمع', '(4 + 2i) + (5 + 4i)', 'تغيير العملية إلى جمع يجهزنا لتطبيق قاعدة الإشارات.'),
-    ('نغيّر إشارات القوس الثاني', '(4 + 2i) + (-5 - 4i)', 'نغيّر الحقيقي 5 إلى -5 والتخيلي 4i إلى -4i.'),
-    ('نجمع الحقيقي مع الحقيقي', '4 + (-5) = -1', 'لأن الأعداد الحقيقية تجمع معاً فقط.'),
-    ('نجمع التخيلي مع التخيلي', '2i + (-4i) = -2i', 'لأن الأجزاء التخيليّة تحمل الوحدة نفسها i.'),
-    ('نكتب الناتج بالشكل القياسي', '-1 - 2i', 'الحقيقي على اليسار والتخيلي على اليمين.'),
+    (
+      'ننزل القوس الأول كما هو',
+      '(4 + 2i) - (5 + 4i)',
+      'لا نغيّر العدد الأول أو إشاراته.',
+    ),
+    (
+      'نحوّل الطرح إلى جمع',
+      '(4 + 2i) + (5 + 4i)',
+      'تغيير العملية إلى جمع يجهزنا لتطبيق قاعدة الإشارات.',
+    ),
+    (
+      'نغيّر إشارات القوس الثاني',
+      '(4 + 2i) + (-5 - 4i)',
+      'نغيّر الحقيقي 5 إلى -5 والتخيلي 4i إلى -4i.',
+    ),
+    (
+      'نجمع الحقيقي مع الحقيقي',
+      '4 + (-5) = -1',
+      'لأن الأعداد الحقيقية تجمع معاً فقط.',
+    ),
+    (
+      'نجمع التخيلي مع التخيلي',
+      '2i + (-4i) = -2i',
+      'لأن الأجزاء التخيليّة تحمل الوحدة نفسها i.',
+    ),
+    (
+      'نكتب الناتج بالشكل القياسي',
+      '-1 - 2i',
+      'الحقيقي على اليسار والتخيلي على اليمين.',
+    ),
   ];
 
   static const secondSteps = [
-    ('ننزل القوس الأول كما هو', '(6 + 3i) - (-2 - 4i)', 'لا نغيّر العدد الأول أو إشاراته.'),
-    ('نحوّل الطرح إلى جمع', '(6 + 3i) + (-2 - 4i)', 'استبدلنا علامة الطرح بعلامة الجمع.'),
-    ('نغيّر إشارات القوس الثاني', '(6 + 3i) + (2 + 4i)', 'السالب أمام القوس يقلب -2 إلى 2 و-4i إلى 4i.'),
+    (
+      'ننزل القوس الأول كما هو',
+      '(6 + 3i) - (-2 - 4i)',
+      'لا نغيّر العدد الأول أو إشاراته.',
+    ),
+    (
+      'نحوّل الطرح إلى جمع',
+      '(6 + 3i) + (-2 - 4i)',
+      'استبدلنا علامة الطرح بعلامة الجمع.',
+    ),
+    (
+      'نغيّر إشارات القوس الثاني',
+      '(6 + 3i) + (2 + 4i)',
+      'السالب أمام القوس يقلب -2 إلى 2 و-4i إلى 4i.',
+    ),
     ('نجمع الحقيقي مع الحقيقي', '6 + 2 = 8', 'لأن 6 و2 جزءان حقيقيان.'),
-    ('نجمع التخيلي مع التخيلي', '3i + 4i = 7i', 'لأن 3i و4i جزءان تخيليان متشابهان.'),
-    ('نكتب الناتج بالشكل القياسي', '8 + 7i', 'الحقيقي بقي يساراً والتخيلي بقي يميناً.'),
+    (
+      'نجمع التخيلي مع التخيلي',
+      '3i + 4i = 7i',
+      'لأن 3i و4i جزءان تخيليان متشابهان.',
+    ),
+    (
+      'نكتب الناتج بالشكل القياسي',
+      '8 + 7i',
+      'الحقيقي بقي يساراً والتخيلي بقي يميناً.',
+    ),
   ];
 
   @override
@@ -2192,19 +2977,28 @@ class _ComplexSubtractionExamplesPageState extends State<ComplexSubtractionExamp
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _LessonIllustration(
-          icon: currentExample == 0 ? Icons.edit_note_rounded : Icons.calculate_outlined,
-          label: currentExample == 0 ? 'نقلب الإشارات خطوة خطوة' : 'ممتاز، نكمل المثال الثاني',
+          icon: currentExample == 0
+              ? Icons.edit_note_rounded
+              : Icons.calculate_outlined,
+          label: currentExample == 0
+              ? 'نقلب الإشارات خطوة خطوة'
+              : 'ممتاز، نكمل المثال الثاني',
           color: burgundy,
         ),
         const SizedBox(height: 14),
-        _ExampleProgress(currentExample: currentExample, completed: allExamplesDone),
+        _ExampleProgress(
+          currentExample: currentExample,
+          completed: allExamplesDone,
+        ),
         const SizedBox(height: 14),
         allExamplesDone
             ? const _SubtractionCompleted()
             : _SubtractionExampleCard(
                 key: ValueKey(currentExample),
                 title: currentExample == 0 ? 'المثال الأول' : 'المثال الثاني',
-                expression: currentExample == 0 ? '(4 + 2i) - (5 + 4i)' : '(6 + 3i) - (-2 - 4i)',
+                expression: currentExample == 0
+                    ? '(4 + 2i) - (5 + 4i)'
+                    : '(6 + 3i) - (-2 - 4i)',
                 steps: currentExample == 0 ? firstSteps : secondSteps,
                 isLastExample: currentExample == 1,
                 onCompleted: () => setState(() {
@@ -2226,10 +3020,18 @@ class _SubtractionExampleCard extends StatefulWidget {
   final List<(String, String, String)> steps;
   final bool isLastExample;
   final VoidCallback onCompleted;
-  const _SubtractionExampleCard({super.key, required this.title, required this.expression, required this.steps, required this.isLastExample, required this.onCompleted});
+  const _SubtractionExampleCard({
+    super.key,
+    required this.title,
+    required this.expression,
+    required this.steps,
+    required this.isLastExample,
+    required this.onCompleted,
+  });
 
   @override
-  State<_SubtractionExampleCard> createState() => _SubtractionExampleCardState();
+  State<_SubtractionExampleCard> createState() =>
+      _SubtractionExampleCardState();
 }
 
 class _SubtractionExampleCardState extends State<_SubtractionExampleCard> {
@@ -2258,7 +3060,10 @@ class _SubtractionExampleCardState extends State<_SubtractionExampleCard> {
         transitionBuilder: (child, animation) => FadeTransition(
           opacity: animation,
           child: SlideTransition(
-            position: Tween<Offset>(begin: const Offset(.08, 0), end: Offset.zero).animate(animation),
+            position: Tween<Offset>(
+              begin: const Offset(.08, 0),
+              end: Offset.zero,
+            ).animate(animation),
             child: child,
           ),
         ),
@@ -2266,17 +3071,36 @@ class _SubtractionExampleCardState extends State<_SubtractionExampleCard> {
           key: ValueKey(visibleStep),
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(widget.title, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+            Text(
+              widget.title,
+              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             _MathLine(widget.expression),
             const Divider(height: 24),
-            Text('الخطوة ${visibleStep + 1} من ${widget.steps.length}', style: const TextStyle(color: burgundy, fontWeight: FontWeight.bold)),
+            Text(
+              'الخطوة ${visibleStep + 1} من ${widget.steps.length}',
+              style: const TextStyle(
+                color: burgundy,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text(step.$1, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: burgundy)),
+            Text(
+              step.$1,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: burgundy,
+              ),
+            ),
             const SizedBox(height: 8),
             _MathLine(step.$2),
             const SizedBox(height: 8),
-            Text('السبب: ${step.$3}', style: const TextStyle(color: mutedInk, height: 1.5)),
+            Text(
+              'السبب: ${step.$3}',
+              style: const TextStyle(color: mutedInk, height: 1.5),
+            ),
             const SizedBox(height: 12),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 320),
@@ -2289,11 +3113,25 @@ class _SubtractionExampleCardState extends State<_SubtractionExampleCard> {
                   : const SizedBox(key: ValueKey('normal-step')),
             ),
             const SizedBox(height: 12),
-            Row(children: [
-              Expanded(child: OutlinedButton.icon(onPressed: () => markStep(true), icon: const Icon(Icons.check), label: const Text('فهمت'))),
-              const SizedBox(width: 8),
-              Expanded(child: TextButton.icon(onPressed: () => markStep(false), icon: const Icon(Icons.help_outline), label: const Text('لم أفهم'))),
-            ]),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => markStep(true),
+                    icon: const Icon(Icons.check),
+                    label: const Text('فهمت'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: () => markStep(false),
+                    icon: const Icon(Icons.help_outline),
+                    label: const Text('لم أفهم'),
+                  ),
+                ),
+              ],
+            ),
             if (isUnderstood) ...[
               const SizedBox(height: 10),
               FilledButton.icon(
@@ -2302,9 +3140,13 @@ class _SubtractionExampleCardState extends State<_SubtractionExampleCard> {
                     : () => setState(() => visibleStep++),
                 style: FilledButton.styleFrom(backgroundColor: burgundy),
                 icon: const Icon(Icons.arrow_back_rounded),
-                label: Text(visibleStep == widget.steps.length - 1
-                    ? widget.isLastExample ? 'فهمت، إنهاء الأمثلة' : 'فهمت، افتح المثال الثاني'
-                    : 'فهمت، الخطوة التالية'),
+                label: Text(
+                  visibleStep == widget.steps.length - 1
+                      ? widget.isLastExample
+                            ? 'فهمت، إنهاء الأمثلة'
+                            : 'فهمت، افتح المثال الثاني'
+                      : 'فهمت، الخطوة التالية',
+                ),
               ),
             ],
           ],
@@ -2314,11 +3156,16 @@ class _SubtractionExampleCardState extends State<_SubtractionExampleCard> {
   }
 
   String _simpleStep((String, String, String) step) {
-    if (step.$1.contains('إشارات')) return 'نقلب علامة كل جزء داخل القوس الثاني فقط، ثم نكمل الجمع.';
-    if (step.$1.contains('الطرح')) return 'نبدل - إلى + حتى يصبح الحل جمعاً منظماً.';
-    if (step.$1.contains('الحقيقي')) return 'نجمع الأرقام العادية وحدها، من دون i.';
-    if (step.$1.contains('التخيلي')) return 'نجمع معاملات i وحدها ونبقي i في الناتج.';
-    if (step.$1.contains('القياسي')) return 'ضع الرقم العادي أولاً، ثم الجزء الذي يحتوي i.';
+    if (step.$1.contains('إشارات'))
+      return 'نقلب علامة كل جزء داخل القوس الثاني فقط، ثم نكمل الجمع.';
+    if (step.$1.contains('الطرح'))
+      return 'نبدل - إلى + حتى يصبح الحل جمعاً منظماً.';
+    if (step.$1.contains('الحقيقي'))
+      return 'نجمع الأرقام العادية وحدها، من دون i.';
+    if (step.$1.contains('التخيلي'))
+      return 'نجمع معاملات i وحدها ونبقي i في الناتج.';
+    if (step.$1.contains('القياسي'))
+      return 'ضع الرقم العادي أولاً، ثم الجزء الذي يحتوي i.';
     return 'نكتب القوس كما هو وننتقل بهدوء للخطوة التالية.';
   }
 }
@@ -2328,11 +3175,21 @@ class _SubtractionCompleted extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Panel(
-    child: Column(children: [
-      _LessonIllustration(icon: Icons.emoji_events_outlined, label: 'أحسنت، اكتملت أمثلة الطرح', color: burgundy),
-      SizedBox(height: 14),
-      Text('تعلمت أن نحول الطرح إلى جمع، ثم نغيّر إشارات القوس الثاني ونحافظ على الشكل القياسي.', textAlign: TextAlign.center, style: TextStyle(color: mutedInk, height: 1.6)),
-    ]),
+    child: Column(
+      children: [
+        _LessonIllustration(
+          icon: Icons.emoji_events_outlined,
+          label: 'أحسنت، اكتملت أمثلة الطرح',
+          color: burgundy,
+        ),
+        SizedBox(height: 14),
+        Text(
+          'تعلمت أن نحول الطرح إلى جمع، ثم نغيّر إشارات القوس الثاني ونحافظ على الشكل القياسي.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: mutedInk, height: 1.6),
+        ),
+      ],
+    ),
   );
 }
 
@@ -2340,25 +3197,27 @@ class ComplexMultiplicationLessonPage extends StatefulWidget {
   const ComplexMultiplicationLessonPage({super.key});
 
   @override
-  State<ComplexMultiplicationLessonPage> createState() => _ComplexMultiplicationLessonPageState();
+  State<ComplexMultiplicationLessonPage> createState() =>
+      _ComplexMultiplicationLessonPageState();
 }
 
-class _ComplexMultiplicationLessonPageState extends State<ComplexMultiplicationLessonPage> {
+class _ComplexMultiplicationLessonPageState
+    extends State<ComplexMultiplicationLessonPage> {
   static const notes = [
     (
       'اضرب كل حد في القوس الأول بكل حد في القوس الثاني',
       'نوزّع الضرب على القوسين: الحقيقي في الحقيقي، والحقيقي في التخيلي، والتخيلي في الحقيقي، والتخيلي في التخيلي.',
-      'كل حد من القوس الأول يجب أن يصل إلى كل حد من القوس الثاني، فلا نترك أي حاصل ضرب.'
+      'كل حد من القوس الأول يجب أن يصل إلى كل حد من القوس الثاني، فلا نترك أي حاصل ضرب.',
     ),
     (
       'استبدل i² بسالب واحد',
       'عندما نضرب i في i نحصل على i²، ونستبدلها مباشرةً بـ -1 قبل تجميع الحدود.',
-      'i × i = i²، وقيمة i² هي -1؛ لذلك يتحول الحد التخيلي المربع إلى حد حقيقي.'
+      'i × i = i²، وقيمة i² هي -1؛ لذلك يتحول الحد التخيلي المربع إلى حد حقيقي.',
     ),
     (
       'اجمع الحدود المتشابهة واكتب الشكل القياسي',
       'نجمع الحدود الحقيقية معاً، ثم الحدود التي تحتوي i معاً، ونكتب الناتج على صورة a + bi.',
-      'العدد الحقيقي يكون يساراً والجزء التخيلي الذي يحتوي i يكون يميناً.'
+      'العدد الحقيقي يكون يساراً والجزء التخيلي الذي يحتوي i يكون يميناً.',
     ),
   ];
 
@@ -2368,12 +3227,12 @@ class _ComplexMultiplicationLessonPageState extends State<ComplexMultiplicationL
     (
       'الجذور المتشابهة: اجمع أو اطرح المعاملات فقط',
       'إذا كان الجذران متشابهين، نبقي الجذر مرة واحدة ونجمع أو نطرح الأرقام التي قبله. مثال: √3 + √3 = 2√3، ومثال آخر: 2√3 - √3 = √3.',
-      'ننظر إلى ما قبل الجذر فقط: 1√3 + 1√3 = 2√3، و2√3 - 1√3 = 1√3.'
+      'ننظر إلى ما قبل الجذر فقط: 1√3 + 1√3 = 2√3، و2√3 - 1√3 = 1√3.',
     ),
     (
       'الجذور المختلفة: نضرب ما بداخل الجذر',
       'إذا كانت الجذور مختلفة مثل √2 × √5، نضرب العددين داخل الجذر فنحصل على √10.',
-      'لا نجمع √2 و√5؛ عند الضرب نضع 2 × 5 تحت جذر واحد، لذلك الناتج √10.'
+      'لا نجمع √2 و√5؛ عند الضرب نضع 2 × 5 تحت جذر واحد، لذلك الناتج √10.',
     ),
   ];
   int understoodRadicalNotes = 0;
@@ -2398,8 +3257,12 @@ class _ComplexMultiplicationLessonPageState extends State<ComplexMultiplicationL
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _LessonIllustration(
-          icon: understoodNotes == notes.length ? Icons.auto_awesome_rounded : Icons.calculate_outlined,
-          label: understoodNotes == notes.length ? 'أحسنت، طبّق التوزيع الآن' : 'نوزّع ونحسب ونرتّب',
+          icon: understoodNotes == notes.length
+              ? Icons.auto_awesome_rounded
+              : Icons.calculate_outlined,
+          label: understoodNotes == notes.length
+              ? 'أحسنت، طبّق التوزيع الآن'
+              : 'نوزّع ونحسب ونرتّب',
           color: const Color(0xffc47a22),
         ),
         const SizedBox(height: 14),
@@ -2418,42 +3281,57 @@ class _ComplexMultiplicationLessonPageState extends State<ComplexMultiplicationL
           icon: Icons.square_foot_rounded,
           color: Color(0xffc47a22),
           title: 'ملاحظات تبسيط الجذور',
-          subtitle: 'مهارة مساندة: نعرف متى نجمع المعاملات ومتى نضرب ما داخل الجذر',
+          subtitle:
+              'مهارة مساندة: نعرف متى نجمع المعاملات ومتى نضرب ما داخل الجذر',
         ),
         const SizedBox(height: 14),
-        ...List.generate(radicalNotes.length, (index) => _NoteCard(
-          number: index + 1,
-          title: radicalNotes[index].$1,
-          body: radicalNotes[index].$2,
-          simplerBody: radicalNotes[index].$3,
-          isSimpler: simplerRadicalNotes.contains(index),
-          isDone: understoodRadicalNotes > index,
-          onUnderstood: () => setState(() {
-            understoodRadicalNotes = math.max(understoodRadicalNotes, index + 1);
-            simplerRadicalNotes.remove(index);
-          }),
-          onNotUnderstood: () => setState(() => simplerRadicalNotes.add(index)),
-        )),
+        ...List.generate(
+          radicalNotes.length,
+          (index) => _NoteCard(
+            number: index + 1,
+            title: radicalNotes[index].$1,
+            body: radicalNotes[index].$2,
+            simplerBody: radicalNotes[index].$3,
+            isSimpler: simplerRadicalNotes.contains(index),
+            isDone: understoodRadicalNotes > index,
+            onUnderstood: () => setState(() {
+              understoodRadicalNotes = math.max(
+                understoodRadicalNotes,
+                index + 1,
+              );
+              simplerRadicalNotes.remove(index);
+            }),
+            onNotUnderstood: () =>
+                setState(() => simplerRadicalNotes.add(index)),
+          ),
+        ),
         const SizedBox(height: 18),
-        ...List.generate(notes.length, (index) => _NoteCard(
-          number: index + 1,
-          title: notes[index].$1,
-          body: notes[index].$2,
-          simplerBody: notes[index].$3,
-          isSimpler: simplerNotes.contains(index),
-          isDone: understoodNotes > index,
-          onUnderstood: () => markNote(index, true),
-          onNotUnderstood: () => markNote(index, false),
-        )),
+        ...List.generate(
+          notes.length,
+          (index) => _NoteCard(
+            number: index + 1,
+            title: notes[index].$1,
+            body: notes[index].$2,
+            simplerBody: notes[index].$3,
+            isSimpler: simplerNotes.contains(index),
+            isDone: understoodNotes > index,
+            onUnderstood: () => markNote(index, true),
+            onNotUnderstood: () => markNote(index, false),
+          ),
+        ),
         const SizedBox(height: 8),
         FilledButton.icon(
           onPressed: understoodNotes == notes.length
               ? () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ComplexMultiplicationExamplesPage()),
+                  MaterialPageRoute(
+                    builder: (_) => const ComplexMultiplicationExamplesPage(),
+                  ),
                 )
               : null,
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xffc47a22)),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xffc47a22),
+          ),
           icon: const Icon(Icons.play_arrow_rounded),
           label: const Text('ابدأ أمثلة الضرب التفاعلية'),
         ),
@@ -2466,54 +3344,121 @@ class _MultiplicationRuleMap extends StatelessWidget {
   const _MultiplicationRuleMap();
 
   static const steps = [
-    ('1', 'وزّع الضرب على القوسين', '(a + bi)(c + di)', Icons.open_with_rounded),
-    ('2', 'اضرب الحدود الأربعة', 'ac + adi + bci + bdi²', Icons.grid_view_rounded),
+    (
+      '1',
+      'وزّع الضرب على القوسين',
+      '(a + bi)(c + di)',
+      Icons.open_with_rounded,
+    ),
+    (
+      '2',
+      'اضرب الحدود الأربعة',
+      'ac + adi + bci + bdi²',
+      Icons.grid_view_rounded,
+    ),
     ('3', 'استبدل i² بسالب واحد', 'bdi² = -bd', Icons.swap_horiz_rounded),
-    ('4', 'اجمع المتشابه واكتب a + bi', '(ac - bd) + (ad + bc)i', Icons.auto_awesome_rounded),
+    (
+      '4',
+      'اجمع المتشابه واكتب a + bi',
+      '(ac - bd) + (ad + bc)i',
+      Icons.auto_awesome_rounded,
+    ),
   ];
 
   @override
   Widget build(BuildContext context) => Panel(
     padding: const EdgeInsets.all(14),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const Row(children: [
-        Icon(Icons.account_tree_outlined, color: Color(0xffc47a22)),
-        SizedBox(width: 8),
-        Expanded(child: Text('خريطة حل الضرب', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-      ]),
-      const SizedBox(height: 12),
-      ...List.generate(steps.length, (index) {
-        final step = steps[index];
-        return Column(children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: index.isEven ? const Color(0xfffffaf2) : const Color(0xfff5f9ff),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xffc47a22).withValues(alpha: .2)),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.account_tree_outlined, color: Color(0xffc47a22)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'خريطة حل الضرب',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
             ),
-            child: Row(children: [
-              CircleAvatar(radius: 17, backgroundColor: const Color(0xffc47a22), foregroundColor: Colors.white, child: Text(step.$1)),
-              const SizedBox(width: 10),
-              Icon(step.$4, color: const Color(0xffc47a22), size: 24),
-              const SizedBox(width: 8),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(step.$2, style: const TextStyle(fontWeight: FontWeight.bold, color: ink)),
-                const SizedBox(height: 4),
-                Directionality(textDirection: TextDirection.ltr, child: Text(step.$3, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xffa56518)))),
-              ])),
-            ]),
-          ),
-          if (index < steps.length - 1) const Padding(padding: EdgeInsets.symmetric(vertical: 3), child: Icon(Icons.arrow_downward_rounded, color: Color(0xffc47a22), size: 22)),
-        ]);
-      }),
-      const SizedBox(height: 12),
-      const Text(
-        'نضرب كل حد في القوس الأول بكل حد في القوس الثاني، ثم نستبدل i² بسالب واحد، ونجمع الحقيقي مع الحقيقي والتخيلي مع التخيلي.',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: mutedInk, height: 1.6),
-      ),
-    ]),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...List.generate(steps.length, (index) {
+          final step = steps[index];
+          return Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: index.isEven
+                      ? const Color(0xfffffaf2)
+                      : const Color(0xfff5f9ff),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xffc47a22).withValues(alpha: .2),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 17,
+                      backgroundColor: const Color(0xffc47a22),
+                      foregroundColor: Colors.white,
+                      child: Text(step.$1),
+                    ),
+                    const SizedBox(width: 10),
+                    Icon(step.$4, color: const Color(0xffc47a22), size: 24),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            step.$2,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: ink,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Text(
+                              step.$3,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xffa56518),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (index < steps.length - 1)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 3),
+                  child: Icon(
+                    Icons.arrow_downward_rounded,
+                    color: Color(0xffc47a22),
+                    size: 22,
+                  ),
+                ),
+            ],
+          );
+        }),
+        const SizedBox(height: 12),
+        const Text(
+          'نضرب كل حد في القوس الأول بكل حد في القوس الثاني، ثم نستبدل i² بسالب واحد، ونجمع الحقيقي مع الحقيقي والتخيلي مع التخيلي.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: mutedInk, height: 1.6),
+        ),
+      ],
+    ),
   );
 }
 
@@ -2521,19 +3466,53 @@ class _ConjugateMultiplicationLesson extends StatefulWidget {
   const _ConjugateMultiplicationLesson();
 
   @override
-  State<_ConjugateMultiplicationLesson> createState() => _ConjugateMultiplicationLessonState();
+  State<_ConjugateMultiplicationLesson> createState() =>
+      _ConjugateMultiplicationLessonState();
 }
 
-class _ConjugateMultiplicationLessonState extends State<_ConjugateMultiplicationLesson> {
+class _ConjugateMultiplicationLessonState
+    extends State<_ConjugateMultiplicationLesson> {
   static const steps = [
-    ('نبدأ بالشكل العام', '(a + bi)(a - bi)', 'هذا هو شكل ضرب العددين المترافقين.'),
-    ('نقارن العدد الحقيقي', 'a في القوس الأول و a في القوس الثاني', 'العدد الحقيقي نفسه a ظهر في القوسين.'),
-    ('نقارن الجزء التخيلي', 'bi في القوس الأول و bi في القوس الثاني', 'الجزء التخيلي نفسه هو bi في القوسين.'),
-    ('نلاحظ الإشارة', '+bi و -bi', 'الاختلاف الوحيد هو الإشارة: موجب في القوس الأول وسالب في القوس الثاني، لذلك نسميهما مترافقين.'),
-    ('نستخدم الفرق بين مربعين', '(a + bi)(a - bi) = a² - (bi)²', 'القاعدة تقول: (س + ص)(س - ص) = س² - ص².'),
-    ('نتذكر قاعدة i²', 'i² = -1', 'إذا نسيت، اضغط «نسيت» وسنشرحها مرة أخرى هنا.'),
-    ('نبدّل i²', 'a² - b²(-1) = a² + b²', 'طرح عدد سالب يحوّل الإشارة إلى جمع.'),
-    ('نحسب النتيجة', 'a² + b²', 'نربّع العدد الحقيقي a، ثم نربّع معامل i وهو b، ثم نجمعهما.'),
+    (
+      'نبدأ بالشكل العام',
+      '(a + bi)(a - bi)',
+      'هذا هو شكل ضرب العددين المترافقين.',
+    ),
+    (
+      'نقارن العدد الحقيقي',
+      'a في القوس الأول و a في القوس الثاني',
+      'العدد الحقيقي نفسه a ظهر في القوسين.',
+    ),
+    (
+      'نقارن الجزء التخيلي',
+      'bi في القوس الأول و bi في القوس الثاني',
+      'الجزء التخيلي نفسه هو bi في القوسين.',
+    ),
+    (
+      'نلاحظ الإشارة',
+      '+bi و -bi',
+      'الاختلاف الوحيد هو الإشارة: موجب في القوس الأول وسالب في القوس الثاني، لذلك نسميهما مترافقين.',
+    ),
+    (
+      'نستخدم الفرق بين مربعين',
+      '(a + bi)(a - bi) = a² - (bi)²',
+      'القاعدة تقول: (س + ص)(س - ص) = س² - ص².',
+    ),
+    (
+      'نتذكر قاعدة i²',
+      'i² = -1',
+      'إذا نسيت، اضغط «نسيت» وسنشرحها مرة أخرى هنا.',
+    ),
+    (
+      'نبدّل i²',
+      'a² - b²(-1) = a² + b²',
+      'طرح عدد سالب يحوّل الإشارة إلى جمع.',
+    ),
+    (
+      'نحسب النتيجة',
+      'a² + b²',
+      'نربّع العدد الحقيقي a، ثم نربّع معامل i وهو b، ثم نجمعهما.',
+    ),
   ];
 
   int visibleStep = 0;
@@ -2560,76 +3539,195 @@ class _ConjugateMultiplicationLessonState extends State<_ConjugateMultiplication
     final isI2Step = visibleStep == 5;
     return Panel(
       padding: const EdgeInsets.all(14),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const _LearningHeader(
-          icon: Icons.compare_arrows_rounded,
-          color: Color(0xff2563eb),
-          title: 'ضرب العددين المترافقين',
-          subtitle: 'ملاحظة مهمة، خطوة واحدة في كل مرة',
-        ),
-        const SizedBox(height: 12),
-        Row(children: [
-          CircleAvatar(radius: 17, backgroundColor: const Color(0xff2563eb), foregroundColor: Colors.white, child: Text('${visibleStep + 1}')),
-          const SizedBox(width: 8),
-          Text('الخطوة ${visibleStep + 1} من ${steps.length}', style: const TextStyle(color: Color(0xff2563eb), fontWeight: FontWeight.bold)),
-        ]),
-        const SizedBox(height: 10),
-        Text(step.$1, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff1d4ed8))),
-        const SizedBox(height: 10),
-        _MathLine(step.$2),
-        const SizedBox(height: 10),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.arrow_forward_rounded, color: Color(0xff2563eb)),
-          const SizedBox(width: 6),
-          Flexible(child: Text(step.$3, textAlign: TextAlign.center, style: const TextStyle(color: mutedInk, height: 1.5))),
-          const SizedBox(width: 6),
-          const Icon(Icons.arrow_back_rounded, color: Color(0xff2563eb)),
-        ]),
-        if (showWhy) ...[
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _LearningHeader(
+            icon: Icons.compare_arrows_rounded,
+            color: Color(0xff2563eb),
+            title: 'ضرب العددين المترافقين',
+            subtitle: 'ملاحظة مهمة، خطوة واحدة في كل مرة',
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 17,
+                backgroundColor: const Color(0xff2563eb),
+                foregroundColor: Colors.white,
+                child: Text('${visibleStep + 1}'),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'الخطوة ${visibleStep + 1} من ${steps.length}',
+                style: const TextStyle(
+                  color: Color(0xff2563eb),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
-          Text(_whyText(visibleStep), style: const TextStyle(color: Color(0xff1d4ed8), height: 1.5)),
-        ],
-        if (showSimple) ...[
-          const SizedBox(height: 10),
-          Text(_simpleText(visibleStep), style: const TextStyle(color: Color(0xffa56518), height: 1.5)),
-        ],
-        if (forgotI) ...[
-          const SizedBox(height: 10),
-          const Text('تذكّر: i هو العدد التخيلي، وعندما نضربه في نفسه نحصل على i²، وقاعدة الأعداد المركبة تقول إن i² = -1.', style: TextStyle(color: Color(0xffa56518), height: 1.5)),
-        ],
-        const SizedBox(height: 12),
-        Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
-          OutlinedButton.icon(onPressed: () => setState(() { showWhy = true; showSimple = false; }), icon: const Icon(Icons.help_outline), label: const Text('ليش؟')),
-          OutlinedButton.icon(onPressed: () => setState(() { showSimple = true; showWhy = false; }), icon: const Icon(Icons.lightbulb_outline), label: const Text('اشرح أبسط')),
-          if (isI2Step) OutlinedButton.icon(onPressed: () => setState(() => forgotI = true), icon: const Icon(Icons.refresh), label: const Text('نسيت')),
-          OutlinedButton.icon(onPressed: () => setState(() { showSimple = false; showWhy = false; forgotI = false; }), icon: const Icon(Icons.replay), label: const Text('أعد الخطوة')),
-        ]),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: TextButton.icon(onPressed: visibleStep == 0 ? null : () => move(-1), icon: const Icon(Icons.arrow_back), label: const Text('ارجع خطوة'))),
-          const SizedBox(width: 8),
-          Expanded(child: FilledButton.icon(onPressed: visibleStep == steps.length - 1 ? null : () => move(1), icon: const Icon(Icons.arrow_forward), label: const Text('التالي'))),
-        ]),
-        if (visibleStep == steps.length - 1) ...[
-          const SizedBox(height: 10),
-          const Text('اختر الناتج الصحيح:', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: ['a² - b²', 'a² + b²', '(a + bi)²'].map((answer) => OutlinedButton(
-            onPressed: () => setState(() {
-              selectedAnswer = answer;
-              answerFeedback = answer == 'a² + b²' ? '✓ إجابة صحيحة، أحسنت. نربّع a ونربّع b ثم نجمع.' : 'ليست هذه النتيجة. الخطأ في الإشارة أو في قاعدة i² = -1. حاول مرة أخرى.';
-            }),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: selectedAnswer == answer && answerFeedback?.startsWith('✓') == true ? const Color(0xff15803d) : const Color(0xff2563eb)),
+          Text(
+            step.$1,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xff1d4ed8),
             ),
-            child: Text(answer, textDirection: TextDirection.ltr),
-          )).toList()),
-          if (answerFeedback != null) ...[
+          ),
+          const SizedBox(height: 10),
+          _MathLine(step.$2),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.arrow_forward_rounded, color: Color(0xff2563eb)),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  step.$3,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: mutedInk, height: 1.5),
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.arrow_back_rounded, color: Color(0xff2563eb)),
+            ],
+          ),
+          if (showWhy) ...[
+            const SizedBox(height: 10),
+            Text(
+              _whyText(visibleStep),
+              style: const TextStyle(color: Color(0xff1d4ed8), height: 1.5),
+            ),
+          ],
+          if (showSimple) ...[
+            const SizedBox(height: 10),
+            Text(
+              _simpleText(visibleStep),
+              style: const TextStyle(color: Color(0xffa56518), height: 1.5),
+            ),
+          ],
+          if (forgotI) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'تذكّر: i هو العدد التخيلي، وعندما نضربه في نفسه نحصل على i²، وقاعدة الأعداد المركبة تقول إن i² = -1.',
+              style: TextStyle(color: Color(0xffa56518), height: 1.5),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => setState(() {
+                  showWhy = true;
+                  showSimple = false;
+                }),
+                icon: const Icon(Icons.help_outline),
+                label: const Text('ليش؟'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => setState(() {
+                  showSimple = true;
+                  showWhy = false;
+                }),
+                icon: const Icon(Icons.lightbulb_outline),
+                label: const Text('اشرح أبسط'),
+              ),
+              if (isI2Step)
+                OutlinedButton.icon(
+                  onPressed: () => setState(() => forgotI = true),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('نسيت'),
+                ),
+              OutlinedButton.icon(
+                onPressed: () => setState(() {
+                  showSimple = false;
+                  showWhy = false;
+                  forgotI = false;
+                }),
+                icon: const Icon(Icons.replay),
+                label: const Text('أعد الخطوة'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: visibleStep == 0 ? null : () => move(-1),
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('ارجع خطوة'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: visibleStep == steps.length - 1
+                      ? null
+                      : () => move(1),
+                  icon: const Icon(Icons.arrow_forward),
+                  label: const Text('التالي'),
+                ),
+              ),
+            ],
+          ),
+          if (visibleStep == steps.length - 1) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'اختر الناتج الصحيح:',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
-            Text(answerFeedback!, textAlign: TextAlign.center, style: TextStyle(color: answerFeedback!.startsWith('✓') ? const Color(0xff15803d) : const Color(0xffb91c1c), fontWeight: FontWeight.bold)),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: ['a² - b²', 'a² + b²', '(a + bi)²']
+                  .map(
+                    (answer) => OutlinedButton(
+                      onPressed: () => setState(() {
+                        selectedAnswer = answer;
+                        answerFeedback = answer == 'a² + b²'
+                            ? '✓ إجابة صحيحة، أحسنت. نربّع a ونربّع b ثم نجمع.'
+                            : 'ليست هذه النتيجة. الخطأ في الإشارة أو في قاعدة i² = -1. حاول مرة أخرى.';
+                      }),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color:
+                              selectedAnswer == answer &&
+                                  answerFeedback?.startsWith('✓') == true
+                              ? const Color(0xff15803d)
+                              : const Color(0xff2563eb),
+                        ),
+                      ),
+                      child: Text(answer, textDirection: TextDirection.ltr),
+                    ),
+                  )
+                  .toList(),
+            ),
+            if (answerFeedback != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                answerFeedback!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: answerFeedback!.startsWith('✓')
+                      ? const Color(0xff15803d)
+                      : const Color(0xffb91c1c),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ],
         ],
-      ]),
+      ),
     );
   }
 
@@ -2660,10 +3758,12 @@ class ComplexMultiplicationExamplesPage extends StatefulWidget {
   const ComplexMultiplicationExamplesPage({super.key});
 
   @override
-  State<ComplexMultiplicationExamplesPage> createState() => _ComplexMultiplicationExamplesPageState();
+  State<ComplexMultiplicationExamplesPage> createState() =>
+      _ComplexMultiplicationExamplesPageState();
 }
 
-class _ComplexMultiplicationExamplesPageState extends State<ComplexMultiplicationExamplesPage> {
+class _ComplexMultiplicationExamplesPageState
+    extends State<ComplexMultiplicationExamplesPage> {
   int firstStep = 0;
   bool firstFinished = false;
 
@@ -2671,22 +3771,34 @@ class _ComplexMultiplicationExamplesPageState extends State<ComplexMultiplicatio
   Widget build(BuildContext context) => _LearningScaffold(
     title: 'أمثلة ضرب الأعداد المركبة',
     subtitle: 'ورقة واحدة نكتب عليها بهدوء، خطوة تحت خطوة',
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _LessonIllustration(icon: Icons.menu_book_rounded, label: firstFinished ? 'ممتاز، ننتقل إلى المرافق' : 'نكتب كل خطوة تحت التي قبلها', color: const Color(0xff2563eb)),
-      const SizedBox(height: 14),
-      _NotebookMultiplicationExample(
-        visibleStep: firstStep,
-        onNext: () => setState(() => firstStep = math.min(firstStep + 1, 9)),
-        onRestart: () => setState(() { firstStep = 0; firstFinished = false; }),
-        onFinished: () => setState(() => firstFinished = true),
-      ),
-      if (firstFinished) ...[
-        const SizedBox(height: 18),
-        const _ConjugatePracticeLesson(),
-        const SizedBox(height: 18),
-        const _MultiplicationCompleted(),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _LessonIllustration(
+          icon: Icons.menu_book_rounded,
+          label: firstFinished
+              ? 'ممتاز، ننتقل إلى المرافق'
+              : 'نكتب كل خطوة تحت التي قبلها',
+          color: const Color(0xff2563eb),
+        ),
+        const SizedBox(height: 14),
+        _NotebookMultiplicationExample(
+          visibleStep: firstStep,
+          onNext: () => setState(() => firstStep = math.min(firstStep + 1, 9)),
+          onRestart: () => setState(() {
+            firstStep = 0;
+            firstFinished = false;
+          }),
+          onFinished: () => setState(() => firstFinished = true),
+        ),
+        if (firstFinished) ...[
+          const SizedBox(height: 18),
+          const _ConjugatePracticeLesson(),
+          const SizedBox(height: 18),
+          const _MultiplicationCompleted(),
+        ],
       ],
-    ]),
+    ),
   );
 }
 
@@ -2695,7 +3807,12 @@ class _NotebookMultiplicationExample extends StatelessWidget {
   final VoidCallback onNext;
   final VoidCallback onRestart;
   final VoidCallback onFinished;
-  const _NotebookMultiplicationExample({required this.visibleStep, required this.onNext, required this.onRestart, required this.onFinished});
+  const _NotebookMultiplicationExample({
+    required this.visibleStep,
+    required this.onNext,
+    required this.onRestart,
+    required this.onFinished,
+  });
 
   static const lines = [
     ('نبدأ بالمثال', '(√3 - 2i) × (3√3 + i)', Color(0xff2563eb)),
@@ -2717,45 +3834,127 @@ class _NotebookMultiplicationExample extends StatelessWidget {
       painter: _MultiplicationNotebookPainter(),
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
-        decoration: BoxDecoration(color: const Color(0xfffffdf5), border: Border.all(color: const Color(0xffd9cda8)), borderRadius: BorderRadius.circular(8)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('المثال الأول: نكتب بهدوء', textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xff1e3a8a))),
-        const SizedBox(height: 8),
-        const Text('الأزرق = الأعداد الأصلية، واللون البرتقالي = إشارة تغيّرت', textAlign: TextAlign.center, style: TextStyle(color: mutedInk)),
-        const SizedBox(height: 16),
-        ...List.generate(visibleStep + 1, (index) => _NotebookLine(index: index, title: lines[index].$1, expression: lines[index].$2, color: lines[index].$3, isPause: index == 6)),
-        if (visibleStep == 6) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: const Color(0xffffe4e6), border: Border.all(color: const Color(0xffe11d48), width: 2), borderRadius: BorderRadius.circular(8)),
-            child: const Column(children: [
-              Text('انتبه جيداً', textAlign: TextAlign.center, style: TextStyle(color: Color(0xffbe123c), fontSize: 19, fontWeight: FontWeight.bold)),
-              SizedBox(height: 6),
-              Text('أي تربيع لـ i يساوي سالب واحد: i² = -1', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, height: 1.5)),
-              Text('لذلك -2i² = -2 × -1 = +2؛ السالب في السالب موجب.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xff9f1239), height: 1.6)),
-            ]),
-          ),
-        ],
-        const SizedBox(height: 14),
-        if (visibleStep < lines.length - 1)
-          FilledButton.icon(onPressed: onNext, style: FilledButton.styleFrom(backgroundColor: const Color(0xff2563eb)), icon: const Icon(Icons.arrow_downward_rounded), label: Text(visibleStep == 6 ? 'فهمت، أكمل الحل' : 'فهمت هذه الخطوة'))
-        else
-          FilledButton.icon(onPressed: onFinished, style: FilledButton.styleFrom(backgroundColor: const Color(0xff15803d)), icon: const Icon(Icons.arrow_downward_rounded), label: const Text('فهمت، انتقل إلى مثال المرافق')),
-        OutlinedButton.icon(
-          onPressed: () => showDialog<void>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('لماذا؟ اشرحها أكثر'),
-              content: Text(visibleStep == 6 ? 'نحوّل -2i² إلى +2 لأن i² = -1، ثم السالب في السالب يصبح موجباً.' : 'كل سهم يقودنا إلى ناتج ضرب واحد. نكتب الناتج تحت السابق حتى لا نخلط بين الحقيقي والتخيلي.'),
-              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('فهمت هذه الخطوة'))],
-            ),
-          ),
-          icon: const Icon(Icons.help_outline),
-          label: const Text('لماذا؟ اشرحها أكثر'),
+        decoration: BoxDecoration(
+          color: const Color(0xfffffdf5),
+          border: Border.all(color: const Color(0xffd9cda8)),
+          borderRadius: BorderRadius.circular(8),
         ),
-        TextButton.icon(onPressed: onRestart, icon: const Icon(Icons.replay), label: const Text('أريد إعادة المثال')),
-      ]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'المثال الأول: نكتب بهدوء',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff1e3a8a),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'الأزرق = الأعداد الأصلية، واللون البرتقالي = إشارة تغيّرت',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: mutedInk),
+            ),
+            const SizedBox(height: 16),
+            ...List.generate(
+              visibleStep + 1,
+              (index) => _NotebookLine(
+                index: index,
+                title: lines[index].$1,
+                expression: lines[index].$2,
+                color: lines[index].$3,
+                isPause: index == 6,
+              ),
+            ),
+            if (visibleStep == 6) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xffffe4e6),
+                  border: Border.all(color: const Color(0xffe11d48), width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Column(
+                  children: [
+                    Text(
+                      'انتبه جيداً',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xffbe123c),
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      'أي تربيع لـ i يساوي سالب واحد: i² = -1',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        height: 1.5,
+                      ),
+                    ),
+                    Text(
+                      'لذلك -2i² = -2 × -1 = +2؛ السالب في السالب موجب.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xff9f1239), height: 1.6),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            if (visibleStep < lines.length - 1)
+              FilledButton.icon(
+                onPressed: onNext,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xff2563eb),
+                ),
+                icon: const Icon(Icons.arrow_downward_rounded),
+                label: Text(
+                  visibleStep == 6 ? 'فهمت، أكمل الحل' : 'فهمت هذه الخطوة',
+                ),
+              )
+            else
+              FilledButton.icon(
+                onPressed: onFinished,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xff15803d),
+                ),
+                icon: const Icon(Icons.arrow_downward_rounded),
+                label: const Text('فهمت، انتقل إلى مثال المرافق'),
+              ),
+            OutlinedButton.icon(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('لماذا؟ اشرحها أكثر'),
+                  content: Text(
+                    visibleStep == 6
+                        ? 'نحوّل -2i² إلى +2 لأن i² = -1، ثم السالب في السالب يصبح موجباً.'
+                        : 'كل سهم يقودنا إلى ناتج ضرب واحد. نكتب الناتج تحت السابق حتى لا نخلط بين الحقيقي والتخيلي.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('فهمت هذه الخطوة'),
+                    ),
+                  ],
+                ),
+              ),
+              icon: const Icon(Icons.help_outline),
+              label: const Text('لماذا؟ اشرحها أكثر'),
+            ),
+            TextButton.icon(
+              onPressed: onRestart,
+              icon: const Icon(Icons.replay),
+              label: const Text('أريد إعادة المثال'),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -2764,7 +3963,9 @@ class _NotebookMultiplicationExample extends StatelessWidget {
 class _MultiplicationNotebookPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final linePaint = Paint()..color = const Color(0xff93c5fd).withValues(alpha: .22)..strokeWidth = 1;
+    final linePaint = Paint()
+      ..color = const Color(0xff93c5fd).withValues(alpha: .22)
+      ..strokeWidth = 1;
     for (var y = 42.0; y < size.height; y += 34) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
     }
@@ -2780,25 +3981,67 @@ class _NotebookLine extends StatelessWidget {
   final String expression;
   final Color color;
   final bool isPause;
-  const _NotebookLine({required this.index, required this.title, required this.expression, required this.color, required this.isPause});
+  const _NotebookLine({
+    required this.index,
+    required this.title,
+    required this.expression,
+    required this.color,
+    required this.isPause,
+  });
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (index > 0) const Align(alignment: Alignment.centerRight, child: Icon(Icons.arrow_downward_rounded, color: Color(0xff64748b), size: 20)),
-      Text(title, textAlign: TextAlign.right, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 4),
-      Directionality(textDirection: TextDirection.ltr, child: Text(expression, textAlign: TextAlign.center, style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.bold, height: 1.45))),
-      if (isPause) const Text('← هنا ننتبه لقاعدة i² قبل أن نكمل', textAlign: TextAlign.center, style: TextStyle(color: Color(0xffbe123c), fontWeight: FontWeight.bold)),
-    ]),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (index > 0)
+          const Align(
+            alignment: Alignment.centerRight,
+            child: Icon(
+              Icons.arrow_downward_rounded,
+              color: Color(0xff64748b),
+              size: 20,
+            ),
+          ),
+        Text(
+          title,
+          textAlign: TextAlign.right,
+          style: TextStyle(color: color, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Text(
+            expression,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              height: 1.45,
+            ),
+          ),
+        ),
+        if (isPause)
+          const Text(
+            '← هنا ننتبه لقاعدة i² قبل أن نكمل',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xffbe123c),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+      ],
+    ),
   );
 }
 
 class _ConjugatePracticeLesson extends StatefulWidget {
   const _ConjugatePracticeLesson();
   @override
-  State<_ConjugatePracticeLesson> createState() => _ConjugatePracticeLessonState();
+  State<_ConjugatePracticeLesson> createState() =>
+      _ConjugatePracticeLessonState();
 }
 
 class _ConjugatePracticeLessonState extends State<_ConjugatePracticeLesson> {
@@ -2808,41 +4051,165 @@ class _ConjugatePracticeLessonState extends State<_ConjugatePracticeLesson> {
 
   @override
   Widget build(BuildContext context) => Panel(
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const _LearningHeader(icon: Icons.compare_arrows_rounded, color: Color(0xff15803d), title: 'مثال المرافق: نمسك الإشارة', subtitle: 'المرافق يغيّر إشارة الجزء التخيلي فقط'),
-      const SizedBox(height: 14),
-      Row(children: [
-        Expanded(child: _LabeledComplex(value: '3 + 2i', label: 'الأصلي', color: const Color(0xff2563eb))),
-        const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Icon(Icons.arrow_forward_rounded, color: Color(0xff64748b))),
-        Expanded(child: _LabeledComplex(value: '3 - 2i', label: 'المرافق', color: const Color(0xff15803d))),
-      ]),
-      const SizedBox(height: 10),
-      const Text('لإيجاد مرافق أي عدد مركب، نغيّر فقط إشارة الجزء التخيلي. الجزء الحقيقي يبقى نفسه.', textAlign: TextAlign.center, style: TextStyle(color: mutedInk, height: 1.6)),
-      const Text('3 + 2i  →  3 - 2i   ↑ تغيّرت الإشارة، وبقي 3 كما هو', textAlign: TextAlign.center, style: TextStyle(color: Color(0xff15803d), fontWeight: FontWeight.bold, height: 1.6)),
-      const Divider(height: 28),
-      Text('نعرف C = 3 + 2i', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xff2563eb), fontSize: 19, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 8),
-      Text('مرافق C = 3 - 2i', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xff15803d), fontSize: 19, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 14),
-      _ConjugateStepBody(step: step),
-      if (showWhy) const Padding(padding: EdgeInsets.only(top: 10), child: Text('نقارن الأجزاء المتشابهة: 3 مع 3، و2i مع -2i. لذلك نعرف بالضبط أي إشارة تغيّرت ولماذا.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xff1d4ed8), height: 1.6))),
-      if (feedback != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(feedback!, textAlign: TextAlign.center, style: TextStyle(color: feedback!.startsWith('أحسنت') ? const Color(0xff15803d) : const Color(0xffb91c1c), fontWeight: FontWeight.bold, height: 1.5))),
-      const SizedBox(height: 12),
-      Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
-        if (step < 5) FilledButton.icon(onPressed: () => setState(() { step++; feedback = null; }), style: FilledButton.styleFrom(backgroundColor: const Color(0xff15803d)), icon: const Icon(Icons.arrow_downward_rounded), label: const Text('فهمت هذه الخطوة')),
-        OutlinedButton.icon(onPressed: () => setState(() => showWhy = true), icon: const Icon(Icons.help_outline), label: const Text('لماذا؟ اشرحها أكثر')),
-        TextButton.icon(onPressed: () => setState(() { step = 0; feedback = null; showWhy = false; }), icon: const Icon(Icons.replay), label: const Text('أعد الخطوة')),
-      ]),
-      if (step == 5) ...[
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _LearningHeader(
+          icon: Icons.compare_arrows_rounded,
+          color: Color(0xff15803d),
+          title: 'مثال المرافق: نمسك الإشارة',
+          subtitle: 'المرافق يغيّر إشارة الجزء التخيلي فقط',
+        ),
         const SizedBox(height: 14),
-        const Text('سؤال صغير: هل العددان مترافقان؟', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        Row(
+          children: [
+            Expanded(
+              child: _LabeledComplex(
+                value: '3 + 2i',
+                label: 'الأصلي',
+                color: const Color(0xff2563eb),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Icon(
+                Icons.arrow_forward_rounded,
+                color: Color(0xff64748b),
+              ),
+            ),
+            Expanded(
+              child: _LabeledComplex(
+                value: '3 - 2i',
+                label: 'المرافق',
+                color: const Color(0xff15803d),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'لإيجاد مرافق أي عدد مركب، نغيّر فقط إشارة الجزء التخيلي. الجزء الحقيقي يبقى نفسه.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: mutedInk, height: 1.6),
+        ),
+        const Text(
+          '3 + 2i  →  3 - 2i   ↑ تغيّرت الإشارة، وبقي 3 كما هو',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Color(0xff15803d),
+            fontWeight: FontWeight.bold,
+            height: 1.6,
+          ),
+        ),
+        const Divider(height: 28),
+        Text(
+          'نعرف C = 3 + 2i',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Color(0xff2563eb),
+            fontSize: 19,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: 8),
-        Wrap(alignment: WrapAlignment.center, spacing: 10, children: [
-          OutlinedButton(onPressed: () => setState(() => feedback = 'أحسنت! انظر: الجزء الحقيقي 3 بقي نفسه، وإشارة 2i فقط تغيّرت.'), child: const Text('نعم')),
-          OutlinedButton(onPressed: () => setState(() => feedback = 'انظر جيداً: لوّن الإشارات والأجزاء الحقيقية والتخيلية. الحقيقي 3 بقي نفسه، والتخيلي فقط بدّل + إلى -. حاول مرة ثانية.'), child: const Text('لا')),
-        ]),
+        Text(
+          'مرافق C = 3 - 2i',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Color(0xff15803d),
+            fontSize: 19,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 14),
+        _ConjugateStepBody(step: step),
+        if (showWhy)
+          const Padding(
+            padding: EdgeInsets.only(top: 10),
+            child: Text(
+              'نقارن الأجزاء المتشابهة: 3 مع 3، و2i مع -2i. لذلك نعرف بالضبط أي إشارة تغيّرت ولماذا.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xff1d4ed8), height: 1.6),
+            ),
+          ),
+        if (feedback != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(
+              feedback!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: feedback!.startsWith('أحسنت')
+                    ? const Color(0xff15803d)
+                    : const Color(0xffb91c1c),
+                fontWeight: FontWeight.bold,
+                height: 1.5,
+              ),
+            ),
+          ),
+        const SizedBox(height: 12),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (step < 5)
+              FilledButton.icon(
+                onPressed: () => setState(() {
+                  step++;
+                  feedback = null;
+                }),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xff15803d),
+                ),
+                icon: const Icon(Icons.arrow_downward_rounded),
+                label: const Text('فهمت هذه الخطوة'),
+              ),
+            OutlinedButton.icon(
+              onPressed: () => setState(() => showWhy = true),
+              icon: const Icon(Icons.help_outline),
+              label: const Text('لماذا؟ اشرحها أكثر'),
+            ),
+            TextButton.icon(
+              onPressed: () => setState(() {
+                step = 0;
+                feedback = null;
+                showWhy = false;
+              }),
+              icon: const Icon(Icons.replay),
+              label: const Text('أعد الخطوة'),
+            ),
+          ],
+        ),
+        if (step == 5) ...[
+          const SizedBox(height: 14),
+          const Text(
+            'سؤال صغير: هل العددان مترافقان؟',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            children: [
+              OutlinedButton(
+                onPressed: () => setState(
+                  () => feedback = 'أحسنت! انظر: الجزء الحقيقي 3 بقي نفسه، وإشارة 2i فقط تغيّرت.',
+                ),
+                child: const Text('نعم'),
+              ),
+              OutlinedButton(
+                onPressed: () => setState(
+                  () => feedback = 'انظر جيداً: لوّن الإشارات والأجزاء الحقيقية والتخيلية. الحقيقي 3 بقي نفسه، والتخيلي فقط بدّل + إلى -. حاول مرة ثانية.',
+                ),
+                child: const Text('لا'),
+              ),
+            ],
+          ),
+        ],
       ],
-    ]),
+    ),
   );
 }
 
@@ -2850,13 +4217,39 @@ class _LabeledComplex extends StatelessWidget {
   final String value;
   final String label;
   final Color color;
-  const _LabeledComplex({required this.value, required this.label, required this.color});
+  const _LabeledComplex({
+    required this.value,
+    required this.label,
+    required this.color,
+  });
   @override
-  Widget build(BuildContext context) => Column(children: [
-    Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4), decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(6)), child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold))),
-    const SizedBox(height: 6),
-    Directionality(textDirection: TextDirection.ltr, child: Text(value, style: TextStyle(color: color, fontSize: 23, fontWeight: FontWeight.bold))),
-  ]);
+  Widget build(BuildContext context) => Column(
+    children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .12),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(color: color, fontWeight: FontWeight.bold),
+        ),
+      ),
+      const SizedBox(height: 6),
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 23,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 class _ConjugateStepBody extends StatelessWidget {
@@ -2865,20 +4258,86 @@ class _ConjugateStepBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final content = switch (step) {
-      0 => ('نجمع C مع مرافقه', 'C + مرافق C = (3 + 2i) + (3 - 2i)', 'نرتّب الحقيقي مع الحقيقي، والتخيلي مع التخيلي.'),
-      1 => ('نركّز أولاً على الحقيقي', '3 + 3 = 6', 'العددان الحقيقيان 3 و3 جمعا فأعطيا 6.'),
-      2 => ('ثم نركّز على التخيلي', '2i + (-2i) = 0i', 'موجب 2i وسالب 2i يلغي أحدهما الآخر.'),
+      0 => (
+        'نجمع C مع مرافقه',
+        'C + مرافق C = (3 + 2i) + (3 - 2i)',
+        'نرتّب الحقيقي مع الحقيقي، والتخيلي مع التخيلي.',
+      ),
+      1 => (
+        'نركّز أولاً على الحقيقي',
+        '3 + 3 = 6',
+        'العددان الحقيقيان 3 و3 جمعا فأعطيا 6.',
+      ),
+      2 => (
+        'ثم نركّز على التخيلي',
+        '2i + (-2i) = 0i',
+        'موجب 2i وسالب 2i يلغي أحدهما الآخر.',
+      ),
       3 => ('نتيجة الجمع', '6 + 0i = 6', 'اختفى الجزء التخيلي لأنه صار صفراً.'),
-      4 => ('نضرب العدد في مرافقه', '(3 + 2i)(3 - 2i) = 3² + 2²', 'إذا كان القوسان مترافقين: الأول تربيع زائد الثاني تربيع.'),
-      _ => ('نحسب بهدوء', '3² = 9   ←   2² = 4   ←   9 + 4 = 13', 'إذن (3 + 2i)(3 - 2i) = 13.'),
+      4 => (
+        'نضرب العدد في مرافقه',
+        '(3 + 2i)(3 - 2i) = 3² + 2²',
+        'إذا كان القوسان مترافقين: الأول تربيع زائد الثاني تربيع.',
+      ),
+      _ => (
+        'نحسب بهدوء',
+        '3² = 9   ←   2² = 4   ←   9 + 4 = 13',
+        'إذن (3 + 2i)(3 - 2i) = 13.',
+      ),
     };
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text(content.$1, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff15803d))),
-      const SizedBox(height: 8),
-      Directionality(textDirection: TextDirection.ltr, child: Text(content.$2, textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold, color: Color(0xff334155), height: 1.5))),
-      const SizedBox(height: 6),
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.arrow_forward_rounded, color: Color(0xff15803d), size: 20), const SizedBox(width: 6), Flexible(child: Text(content.$3, textAlign: TextAlign.center, style: const TextStyle(color: mutedInk, height: 1.5))), const SizedBox(width: 6), const Icon(Icons.arrow_back_rounded, color: Color(0xff15803d), size: 20)]),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          content.$1,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xff15803d),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Text(
+            content.$2,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 21,
+              fontWeight: FontWeight.bold,
+              color: Color(0xff334155),
+              height: 1.5,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.arrow_forward_rounded,
+              color: Color(0xff15803d),
+              size: 20,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                content.$3,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: mutedInk, height: 1.5),
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.arrow_back_rounded,
+              color: Color(0xff15803d),
+              size: 20,
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 
@@ -2888,13 +4347,22 @@ class _MultiplicationExampleCard extends StatefulWidget {
   final List<(String, String, String)> steps;
   final bool isLastExample;
   final VoidCallback onCompleted;
-  const _MultiplicationExampleCard({super.key, required this.title, required this.expression, required this.steps, required this.isLastExample, required this.onCompleted});
+  const _MultiplicationExampleCard({
+    super.key,
+    required this.title,
+    required this.expression,
+    required this.steps,
+    required this.isLastExample,
+    required this.onCompleted,
+  });
 
   @override
-  State<_MultiplicationExampleCard> createState() => _MultiplicationExampleCardState();
+  State<_MultiplicationExampleCard> createState() =>
+      _MultiplicationExampleCardState();
 }
 
-class _MultiplicationExampleCardState extends State<_MultiplicationExampleCard> {
+class _MultiplicationExampleCardState
+    extends State<_MultiplicationExampleCard> {
   int visibleStep = 0;
   final Set<int> understoodSteps = {};
   final Set<int> simplerSteps = {};
@@ -2908,70 +4376,170 @@ class _MultiplicationExampleCardState extends State<_MultiplicationExampleCard> 
     return Panel(
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 420),
-        transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: const Offset(.08, 0), end: Offset.zero).animate(animation), child: child)),
-        child: Column(key: ValueKey(visibleStep), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(widget.title, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          _MathLine(widget.expression),
-          const Divider(height: 24),
-          Text('الخطوة ${visibleStep + 1} من ${widget.steps.length}', style: const TextStyle(color: Color(0xffa56518), fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(step.$1, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xffa56518))),
-          const SizedBox(height: 8),
-          _MathLine(step.$2),
-          const SizedBox(height: 8),
-          Text('السبب: ${step.$3}', style: const TextStyle(color: mutedInk, height: 1.5)),
-          if (showWhy) ...[
-            const SizedBox(height: 10),
-            Text(_whyStep(step), style: const TextStyle(color: Color(0xff1d4ed8), height: 1.5)),
-          ],
-          if (showWrongHint) ...[
-            const SizedBox(height: 10),
-            const Text('توقّف عند الإشارة: افحص هل i² تحوّل إلى -1، وهل جمعت الحقيقي مع الحقيقي والتخيلي مع التخيلي.', style: TextStyle(color: Color(0xffb91c1c), height: 1.5)),
-          ],
-          if (simplerSteps.contains(visibleStep)) ...[
-            const SizedBox(height: 10),
-            Text(_simpleStep(step), style: const TextStyle(color: Color(0xffa56518), height: 1.5)),
-          ],
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: OutlinedButton.icon(onPressed: () => setState(() { understoodSteps.add(visibleStep); simplerSteps.remove(visibleStep); showWrongHint = false; }), icon: const Icon(Icons.check), label: const Text('فهمت'))),
-            const SizedBox(width: 8),
-            Expanded(child: TextButton.icon(onPressed: () => setState(() { simplerSteps.add(visibleStep); showWrongHint = true; }), icon: const Icon(Icons.help_outline), label: const Text('لم أفهم'))),
-          ]),
-          const SizedBox(height: 8),
-          Wrap(alignment: WrapAlignment.center, spacing: 8, children: [
-            TextButton.icon(onPressed: () => setState(() => showWhy = true), icon: const Icon(Icons.question_mark), label: const Text('ليش؟')),
-            TextButton.icon(onPressed: () => setState(() { showWhy = false; showWrongHint = false; }), icon: const Icon(Icons.replay), label: const Text('أعد الخطوة')),
-          ]),
-          if (understood) ...[
-            const SizedBox(height: 10),
-            FilledButton.icon(
-              onPressed: visibleStep == widget.steps.length - 1 ? widget.onCompleted : () => setState(() { visibleStep++; showWhy = false; showWrongHint = false; }),
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xffc47a22)),
-              icon: const Icon(Icons.arrow_back_rounded),
-              label: Text(visibleStep == widget.steps.length - 1 ? widget.isLastExample ? 'فهمت، إنهاء الأمثلة' : 'فهمت، افتح المثال الثاني' : 'فهمت، الخطوة التالية'),
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(.08, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        ),
+        child: Column(
+          key: ValueKey(visibleStep),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              widget.title,
+              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 8),
+            _MathLine(widget.expression),
+            const Divider(height: 24),
+            Text(
+              'الخطوة ${visibleStep + 1} من ${widget.steps.length}',
+              style: const TextStyle(
+                color: Color(0xffa56518),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              step.$1,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: Color(0xffa56518),
+              ),
+            ),
+            const SizedBox(height: 8),
+            _MathLine(step.$2),
+            const SizedBox(height: 8),
+            Text(
+              'السبب: ${step.$3}',
+              style: const TextStyle(color: mutedInk, height: 1.5),
+            ),
+            if (showWhy) ...[
+              const SizedBox(height: 10),
+              Text(
+                _whyStep(step),
+                style: const TextStyle(color: Color(0xff1d4ed8), height: 1.5),
+              ),
+            ],
+            if (showWrongHint) ...[
+              const SizedBox(height: 10),
+              const Text(
+                'توقّف عند الإشارة: افحص هل i² تحوّل إلى -1، وهل جمعت الحقيقي مع الحقيقي والتخيلي مع التخيلي.',
+                style: TextStyle(color: Color(0xffb91c1c), height: 1.5),
+              ),
+            ],
+            if (simplerSteps.contains(visibleStep)) ...[
+              const SizedBox(height: 10),
+              Text(
+                _simpleStep(step),
+                style: const TextStyle(color: Color(0xffa56518), height: 1.5),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => setState(() {
+                      understoodSteps.add(visibleStep);
+                      simplerSteps.remove(visibleStep);
+                      showWrongHint = false;
+                    }),
+                    icon: const Icon(Icons.check),
+                    label: const Text('فهمت'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: () => setState(() {
+                      simplerSteps.add(visibleStep);
+                      showWrongHint = true;
+                    }),
+                    icon: const Icon(Icons.help_outline),
+                    label: const Text('لم أفهم'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  onPressed: () => setState(() => showWhy = true),
+                  icon: const Icon(Icons.question_mark),
+                  label: const Text('ليش؟'),
+                ),
+                TextButton.icon(
+                  onPressed: () => setState(() {
+                    showWhy = false;
+                    showWrongHint = false;
+                  }),
+                  icon: const Icon(Icons.replay),
+                  label: const Text('أعد الخطوة'),
+                ),
+              ],
+            ),
+            if (understood) ...[
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: visibleStep == widget.steps.length - 1
+                    ? widget.onCompleted
+                    : () => setState(() {
+                        visibleStep++;
+                        showWhy = false;
+                        showWrongHint = false;
+                      }),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xffc47a22),
+                ),
+                icon: const Icon(Icons.arrow_back_rounded),
+                label: Text(
+                  visibleStep == widget.steps.length - 1
+                      ? widget.isLastExample
+                            ? 'فهمت، إنهاء الأمثلة'
+                            : 'فهمت، افتح المثال الثاني'
+                      : 'فهمت، الخطوة التالية',
+                ),
+              ),
+            ],
           ],
-        ]),
+        ),
       ),
     );
   }
 
   String _simpleStep((String, String, String) step) {
-    if (step.$1.contains('i²')) return 'عندما ترى i²، استبدلها مباشرةً بـ -1 ثم أكمل الحساب.';
-    if (step.$1.contains('الحدود')) return 'اكتب نواتج الضرب الأربعة جنباً إلى جنب قبل جمع المتشابه.';
-    if (step.$1.contains('الحقيقي')) return 'اجمع الأرقام التي لا تحتوي i وحدها.';
-    if (step.$1.contains('التخيلي')) return 'اجمع معاملات i وحدها واترك i في الناتج.';
-    if (step.$1.contains('النهائي')) return 'اكتب العدد الحقيقي أولاً، ثم الجزء التخيلي الذي يحتوي i.';
+    if (step.$1.contains('i²'))
+      return 'عندما ترى i²، استبدلها مباشرةً بـ -1 ثم أكمل الحساب.';
+    if (step.$1.contains('الحدود'))
+      return 'اكتب نواتج الضرب الأربعة جنباً إلى جنب قبل جمع المتشابه.';
+    if (step.$1.contains('الحقيقي'))
+      return 'اجمع الأرقام التي لا تحتوي i وحدها.';
+    if (step.$1.contains('التخيلي'))
+      return 'اجمع معاملات i وحدها واترك i في الناتج.';
+    if (step.$1.contains('النهائي'))
+      return 'اكتب العدد الحقيقي أولاً، ثم الجزء التخيلي الذي يحتوي i.';
     return 'اضرب بهدوء وتابع السهم من الحد الأول إلى كل حدود القوس الثاني.';
   }
 
   String _whyStep((String, String, String) step) {
-    if (step.$1.contains('i²')) return 'لأن i × i يساوي i²، وقاعدة i² = -1 تغيّر هذا الجزء إلى عدد حقيقي.';
-    if (step.$1.contains('الحدود')) return 'التوزيع يعني أن كل حد في القوس الأول يلتقي بكل حد في القوس الثاني.';
-    if (step.$1.contains('الحقيقي')) return 'الحدود التي لا تحتوي i تبقى حقيقية، لذلك نجمعها وحدها.';
-    if (step.$1.contains('التخيلي')) return 'نترك i كما هي ونجمع الأرقام التي قبلها فقط.';
+    if (step.$1.contains('i²'))
+      return 'لأن i × i يساوي i²، وقاعدة i² = -1 تغيّر هذا الجزء إلى عدد حقيقي.';
+    if (step.$1.contains('الحدود'))
+      return 'التوزيع يعني أن كل حد في القوس الأول يلتقي بكل حد في القوس الثاني.';
+    if (step.$1.contains('الحقيقي'))
+      return 'الحدود التي لا تحتوي i تبقى حقيقية، لذلك نجمعها وحدها.';
+    if (step.$1.contains('التخيلي'))
+      return 'نترك i كما هي ونجمع الأرقام التي قبلها فقط.';
     return 'ننتقل ببطء حتى نرى سبب كل إشارة وكل ناتج قبل الخطوة التالية.';
   }
 }
@@ -2981,11 +4549,21 @@ class _MultiplicationCompleted extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Panel(
-    child: Column(children: [
-      _LessonIllustration(icon: Icons.emoji_events_outlined, label: 'أحسنت، اكتملت أمثلة الضرب', color: Color(0xffc47a22)),
-      SizedBox(height: 14),
-      Text('تعلمت توزيع الضرب، واستبدال i² بسالب واحد، ثم جمع الحقيقي والتخيلي بالشكل القياسي.', textAlign: TextAlign.center, style: TextStyle(color: mutedInk, height: 1.6)),
-    ]),
+    child: Column(
+      children: [
+        _LessonIllustration(
+          icon: Icons.emoji_events_outlined,
+          label: 'أحسنت، اكتملت أمثلة الضرب',
+          color: Color(0xffc47a22),
+        ),
+        SizedBox(height: 14),
+        Text(
+          'تعلمت توزيع الضرب، واستبدال i² بسالب واحد، ثم جمع الحقيقي والتخيلي بالشكل القياسي.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: mutedInk, height: 1.6),
+        ),
+      ],
+    ),
   );
 }
 
@@ -2993,7 +4571,11 @@ class _LearningScaffold extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget child;
-  const _LearningScaffold({required this.title, required this.subtitle, required this.child});
+  const _LearningScaffold({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) => Shell(
@@ -3017,9 +4599,20 @@ class _LearningScaffold extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 6),
-                  Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: mutedInk, fontSize: 15)),
+                  Text(
+                    subtitle,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: mutedInk, fontSize: 15),
+                  ),
                   const SizedBox(height: 20),
                   child,
                 ],
@@ -3037,19 +4630,42 @@ class _LearningHeader extends StatelessWidget {
   final Color color;
   final String title;
   final String subtitle;
-  const _LearningHeader({required this.icon, required this.color, required this.title, required this.subtitle});
+  const _LearningHeader({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) => Panel(
     child: Row(
       children: [
-        CircleAvatar(backgroundColor: color.withValues(alpha: .12), foregroundColor: color, child: Icon(icon)),
+        CircleAvatar(
+          backgroundColor: color.withValues(alpha: .12),
+          foregroundColor: color,
+          child: Icon(icon),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(color: mutedInk, height: 1.4)),
-        ])),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: const TextStyle(color: mutedInk, height: 1.4),
+              ),
+            ],
+          ),
+        ),
       ],
     ),
   );
@@ -3059,7 +4675,11 @@ class _LessonIllustration extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
-  const _LessonIllustration({required this.icon, required this.label, required this.color});
+  const _LessonIllustration({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) => AnimatedContainer(
@@ -3091,12 +4711,20 @@ class _LessonIllustration extends StatelessWidget {
               Positioned(
                 top: 0,
                 right: 4,
-                child: Icon(Icons.auto_awesome, color: color.withValues(alpha: .72), size: 17),
+                child: Icon(
+                  Icons.auto_awesome,
+                  color: color.withValues(alpha: .72),
+                  size: 17,
+                ),
               ),
               Positioned(
                 bottom: 1,
                 left: 3,
-                child: Icon(Icons.menu_book_rounded, color: color.withValues(alpha: .62), size: 18),
+                child: Icon(
+                  Icons.menu_book_rounded,
+                  color: color.withValues(alpha: .62),
+                  size: 18,
+                ),
               ),
             ],
           ),
@@ -3108,7 +4736,11 @@ class _LessonIllustration extends StatelessWidget {
             child: Text(
               label,
               key: ValueKey(label),
-              style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: color,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),
@@ -3124,7 +4756,14 @@ class _LearningTile extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
   final bool enabled;
-  const _LearningTile({required this.icon, required this.color, required this.title, required this.subtitle, required this.onTap, this.enabled = true});
+  const _LearningTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) => Opacity(
@@ -3136,16 +4775,33 @@ class _LearningTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(children: [
-            CircleAvatar(backgroundColor: color.withValues(alpha: .12), foregroundColor: color, child: Icon(icon)),
-            const SizedBox(width: 14),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text(subtitle, style: const TextStyle(color: mutedInk)),
-            ])),
-            const Icon(Icons.chevron_left_rounded, color: mutedInk),
-          ]),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: color.withValues(alpha: .12),
+                foregroundColor: color,
+                child: Icon(icon),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(subtitle, style: const TextStyle(color: mutedInk)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_left_rounded, color: mutedInk),
+            ],
+          ),
         ),
       ),
     ),
@@ -3157,7 +4813,12 @@ class _ChapterTile extends StatelessWidget {
   final String subtitle;
   final bool active;
   final VoidCallback? onTap;
-  const _ChapterTile({required this.title, required this.subtitle, this.active = false, this.onTap});
+  const _ChapterTile({
+    required this.title,
+    required this.subtitle,
+    this.active = false,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) => Panel(
@@ -3167,16 +4828,36 @@ class _ChapterTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(children: [
-          Icon(active ? Icons.lock_open_rounded : Icons.lock_outline_rounded, color: active ? emerald : mutedInk),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: active ? ink : mutedInk)),
-            const SizedBox(height: 4),
-            Text(subtitle, style: TextStyle(color: active ? emerald : mutedInk)),
-          ])),
-          if (active) const Icon(Icons.chevron_left_rounded, color: emerald),
-        ]),
+        child: Row(
+          children: [
+            Icon(
+              active ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
+              color: active ? emerald : mutedInk,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: active ? ink : mutedInk,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: active ? emerald : mutedInk),
+                  ),
+                ],
+              ),
+            ),
+            if (active) const Icon(Icons.chevron_left_rounded, color: emerald),
+          ],
+        ),
       ),
     ),
   );
@@ -3191,7 +4872,16 @@ class _NoteCard extends StatelessWidget {
   final bool isDone;
   final VoidCallback onUnderstood;
   final VoidCallback onNotUnderstood;
-  const _NoteCard({required this.number, required this.title, required this.body, required this.simplerBody, required this.isSimpler, required this.isDone, required this.onUnderstood, required this.onNotUnderstood});
+  const _NoteCard({
+    required this.number,
+    required this.title,
+    required this.body,
+    required this.simplerBody,
+    required this.isSimpler,
+    required this.isDone,
+    required this.onUnderstood,
+    required this.onNotUnderstood,
+  });
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -3202,59 +4892,114 @@ class _NoteCard extends StatelessWidget {
       curve: Curves.easeOutCubic,
       builder: (context, value, child) => Opacity(
         opacity: value,
-        child: Transform.translate(offset: Offset(0, 12 * (1 - value)), child: child),
+        child: Transform.translate(
+          offset: Offset(0, 12 * (1 - value)),
+          child: child,
+        ),
       ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: .92),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: isDone ? emerald.withValues(alpha: .45) : const Color(0xffdfe7e1)),
-          boxShadow: const [BoxShadow(color: Color(0x120d3b2e), blurRadius: 22, offset: Offset(0, 8))],
+          border: Border.all(
+            color: isDone
+                ? emerald.withValues(alpha: .45)
+                : const Color(0xffdfe7e1),
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x120d3b2e),
+              blurRadius: 22,
+              offset: Offset(0, 8),
+            ),
+          ],
         ),
         padding: const EdgeInsets.all(18),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 260),
-            child: CircleAvatar(
-              key: ValueKey(isDone),
-              radius: 16,
-              backgroundColor: isDone ? burgundy : emerald,
-              foregroundColor: Colors.white,
-              child: Icon(isDone ? Icons.check : Icons.edit_note_rounded, size: 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  child: CircleAvatar(
+                    key: ValueKey(isDone),
+                    radius: 16,
+                    backgroundColor: isDone ? burgundy : emerald,
+                    foregroundColor: Colors.white,
+                    child: Icon(
+                      isDone ? Icons.check : Icons.edit_note_rounded,
+                      size: 18,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  child: isDone
+                      ? const Icon(
+                          Icons.check_circle,
+                          key: ValueKey('done'),
+                          color: emerald,
+                        )
+                      : const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          key: ValueKey('pending'),
+                          color: Color(0xffcbd5e1),
+                          size: 16,
+                        ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(child: Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold))),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 260),
-            child: isDone
-                ? const Icon(Icons.check_circle, key: ValueKey('done'), color: emerald)
-                : const Icon(Icons.arrow_forward_ios_rounded, key: ValueKey('pending'), color: Color(0xffcbd5e1), size: 16),
-          ),
-        ]),
-        const SizedBox(height: 10),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 360),
-          transitionBuilder: (child, animation) => SizeTransition(
-            sizeFactor: animation,
-            alignment: Alignment.topCenter,
-            child: FadeTransition(opacity: animation, child: child),
-          ),
-          child: Text(
-            isSimpler ? simplerBody : body,
-            key: ValueKey(isSimpler),
-            style: TextStyle(color: isSimpler ? burgundy : mutedInk, height: 1.65),
-          ),
+            const SizedBox(height: 10),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 360),
+              transitionBuilder: (child, animation) => SizeTransition(
+                sizeFactor: animation,
+                alignment: Alignment.topCenter,
+                child: FadeTransition(opacity: animation, child: child),
+              ),
+              child: Text(
+                isSimpler ? simplerBody : body,
+                key: ValueKey(isSimpler),
+                style: TextStyle(
+                  color: isSimpler ? burgundy : mutedInk,
+                  height: 1.65,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onUnderstood,
+                    icon: const Icon(Icons.check),
+                    label: const Text('فهمت'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: onNotUnderstood,
+                    icon: const Icon(Icons.help_outline),
+                    label: const Text('لم أفهم'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: OutlinedButton.icon(onPressed: onUnderstood, icon: const Icon(Icons.check), label: const Text('فهمت'))),
-          const SizedBox(width: 8),
-          Expanded(child: TextButton.icon(onPressed: onNotUnderstood, icon: const Icon(Icons.help_outline), label: const Text('لم أفهم'))),
-        ]),
-      ]),
       ),
     ),
   );
@@ -3263,38 +5008,56 @@ class _NoteCard extends StatelessWidget {
 class _ExampleProgress extends StatelessWidget {
   final int currentExample;
   final bool completed;
-  const _ExampleProgress({required this.currentExample, required this.completed});
+  const _ExampleProgress({
+    required this.currentExample,
+    required this.completed,
+  });
 
   @override
   Widget build(BuildContext context) => Panel(
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        const Icon(Icons.auto_stories_outlined, color: burgundy),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            completed ? 'اكتملت أمثلة الجمع' : 'المثال ${currentExample + 1} من 2',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.auto_stories_outlined, color: burgundy),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                completed
+                    ? 'اكتملت أمثلة الجمع'
+                    : 'المثال ${currentExample + 1} من 2',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Icon(
+              completed ? Icons.verified_rounded : Icons.route_rounded,
+              color: completed ? emerald : burgundy,
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: LinearProgressIndicator(
+            minHeight: 8,
+            value: completed ? 1 : (currentExample + 1) / 2,
+            backgroundColor: const Color(0xffe2e8f0),
+            color: completed ? emerald : burgundy,
           ),
         ),
-        Icon(completed ? Icons.verified_rounded : Icons.route_rounded, color: completed ? emerald : burgundy),
-      ]),
-      const SizedBox(height: 10),
-      ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: LinearProgressIndicator(
-          minHeight: 8,
-          value: completed ? 1 : (currentExample + 1) / 2,
-          backgroundColor: const Color(0xffe2e8f0),
-          color: completed ? emerald : burgundy,
+        const SizedBox(height: 7),
+        Text(
+          completed
+              ? 'أحسنت، أنهيت كل الأمثلة بالتسلسل.'
+              : 'أكمل خطوات هذا المثال لفتح المثال التالي.',
+          style: const TextStyle(color: mutedInk),
         ),
-      ),
-      const SizedBox(height: 7),
-      Text(
-        completed ? 'أحسنت، أنهيت كل الأمثلة بالتسلسل.' : 'أكمل خطوات هذا المثال لفتح المثال التالي.',
-        style: const TextStyle(color: mutedInk),
-      ),
-    ]),
+      ],
+    ),
   );
 }
 
@@ -3321,7 +5084,11 @@ class _ExamplesCompleted extends StatelessWidget {
         const Text(
           'هل تريد الانتقال لتعرف كيف تقوم بطرح الأعداد المركبة؟',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: ink),
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: ink,
+          ),
         ),
         const SizedBox(height: 12),
         Row(
@@ -3330,7 +5097,9 @@ class _ExamplesCompleted extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: () => Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (_) => const ComplexAdditionLessonPage()),
+                  MaterialPageRoute(
+                    builder: (_) => const ComplexAdditionLessonPage(),
+                  ),
                 ),
                 icon: const Icon(Icons.school_outlined),
                 label: const Text('نعم'),
@@ -3362,7 +5131,15 @@ class _AdditionExampleCard extends StatefulWidget {
   final bool isLastExample;
   final VoidCallback onSkillHelp;
   final VoidCallback onCompleted;
-  const _AdditionExampleCard({super.key, required this.title, required this.expression, required this.steps, required this.isLastExample, required this.onSkillHelp, required this.onCompleted});
+  const _AdditionExampleCard({
+    super.key,
+    required this.title,
+    required this.expression,
+    required this.steps,
+    required this.isLastExample,
+    required this.onSkillHelp,
+    required this.onCompleted,
+  });
 
   @override
   State<_AdditionExampleCard> createState() => _AdditionExampleCardState();
@@ -3373,72 +5150,110 @@ class _AdditionExampleCardState extends State<_AdditionExampleCard> {
 
   @override
   Widget build(BuildContext context) => Panel(
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text(widget.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 8),
-      _MathLine(widget.expression),
-      const Divider(height: 24),
-      AnimatedSize(
-        duration: const Duration(milliseconds: 420),
-        curve: Curves.easeOutCubic,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: List.generate(visibleSteps, (index) => TweenAnimationBuilder<double>(
-            key: ValueKey(index),
-            tween: Tween(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 420),
-            curve: Curves.easeOutCubic,
-            builder: (context, value, child) => Opacity(
-              opacity: value,
-              child: Transform.translate(offset: Offset(0, 10 * (1 - value)), child: child),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Row(children: [
-                  const Icon(Icons.arrow_back_rounded, color: burgundy, size: 18),
-                  const SizedBox(width: 6),
-                  Expanded(child: Text(widget.steps[index].$1, style: const TextStyle(fontWeight: FontWeight.bold, color: burgundy))),
-                ]),
-                const SizedBox(height: 5),
-                _MathLine(widget.steps[index].$2),
-                const SizedBox(height: 5),
-                Text('السبب: ${widget.steps[index].$3}', style: const TextStyle(color: mutedInk, height: 1.45)),
-              ]),
-            ),
-          )),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          widget.title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-      ),
-      if (visibleSteps < widget.steps.length)
-        FilledButton.icon(
-          onPressed: () => setState(() => visibleSteps++),
-          icon: const Icon(Icons.arrow_downward_rounded),
-          label: Text('الخطوة التالية (${visibleSteps + 1} من ${widget.steps.length})'),
-        ),
-      if (visibleSteps == widget.steps.length)
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'إذا فهمت خطوات المثال، اضغط الزر للانتقال.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: mutedInk, fontSize: 13),
+        const SizedBox(height: 8),
+        _MathLine(widget.expression),
+        const Divider(height: 24),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 420),
+          curve: Curves.easeOutCubic,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: List.generate(
+              visibleSteps,
+              (index) => TweenAnimationBuilder<double>(
+                key: ValueKey(index),
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 420),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, child) => Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 10 * (1 - value)),
+                    child: child,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.arrow_back_rounded,
+                            color: burgundy,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              widget.steps[index].$1,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: burgundy,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      _MathLine(widget.steps[index].$2),
+                      const SizedBox(height: 5),
+                      Text(
+                        'السبب: ${widget.steps[index].$3}',
+                        style: const TextStyle(color: mutedInk, height: 1.45),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: widget.onCompleted,
-              style: FilledButton.styleFrom(backgroundColor: burgundy),
-              icon: const Icon(Icons.check_circle_outline_rounded),
-              label: Text(widget.isLastExample ? 'فهمت، إنهاء الأمثلة' : 'فهمت، افتح المثال التالي'),
-            ),
-          ],
+          ),
         ),
-      OutlinedButton.icon(
-        onPressed: widget.onSkillHelp,
-        icon: const Icon(Icons.help_outline),
-        label: const Text('هل ترغب بشرح هذه الخطوة؟'),
-      ),
-    ]),
+        if (visibleSteps < widget.steps.length)
+          FilledButton.icon(
+            onPressed: () => setState(() => visibleSteps++),
+            icon: const Icon(Icons.arrow_downward_rounded),
+            label: Text(
+              'الخطوة التالية (${visibleSteps + 1} من ${widget.steps.length})',
+            ),
+          ),
+        if (visibleSteps == widget.steps.length)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'إذا فهمت خطوات المثال، اضغط الزر للانتقال.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: mutedInk, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: widget.onCompleted,
+                style: FilledButton.styleFrom(backgroundColor: burgundy),
+                icon: const Icon(Icons.check_circle_outline_rounded),
+                label: Text(
+                  widget.isLastExample
+                      ? 'فهمت، إنهاء الأمثلة'
+                      : 'فهمت، افتح المثال التالي',
+                ),
+              ),
+            ],
+          ),
+        OutlinedButton.icon(
+          onPressed: widget.onSkillHelp,
+          icon: const Icon(Icons.help_outline),
+          label: const Text('هل ترغب بشرح هذه الخطوة؟'),
+        ),
+      ],
+    ),
   );
 }
 
@@ -3457,7 +5272,11 @@ class _MathLine extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xffd8d4c6)),
         boxShadow: const [
-          BoxShadow(color: Color(0x120f172a), blurRadius: 8, offset: Offset(0, 3)),
+          BoxShadow(
+            color: Color(0x120f172a),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
         ],
       ),
       child: CustomPaint(
@@ -3468,7 +5287,11 @@ class _MathLine extends StatelessWidget {
             child: Text(
               text,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600, color: ink),
+              style: const TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w600,
+                color: ink,
+              ),
             ),
           ),
         ),
@@ -3541,176 +5364,1337 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
   ];
 
   static const questions = [
-    MillionQuestion(category: 'رياضيات', difficulty: 'سهل', text: 'ما قيمة الجذر التربيعي للعدد 144؟', options: ['10', '11', '12', '14'], answer: 2),
-    MillionQuestion(category: 'رياضيات', difficulty: 'سهل', text: 'إذا كان 2x = 10، فما قيمة x؟', options: ['2', '5', '10', '20'], answer: 1),
-    MillionQuestion(category: 'رياضيات', difficulty: 'متوسط', text: 'ما مشتقة x²؟', options: ['x', '2x', 'x³', '2'], answer: 1),
-    MillionQuestion(category: 'رياضيات', difficulty: 'سهل', text: 'ما قيمة 5²؟', options: ['10', '15', '20', '25'], answer: 3),
-    MillionQuestion(category: 'رياضيات', difficulty: 'سهل', text: 'أي من الآتي يمثل عدداً أولياً؟', options: ['9', '15', '17', '21'], answer: 2),
-    MillionQuestion(category: 'رياضيات', difficulty: 'سهل', text: 'مجموع زوايا المثلث يساوي:', options: ['90°', '180°', '270°', '360°'], answer: 1),
-    MillionQuestion(category: 'رياضيات', difficulty: 'سهل', text: 'ما قيمة 3³؟', options: ['9', '18', '27', '81'], answer: 2),
-    MillionQuestion(category: 'رياضيات', difficulty: 'سهل', text: 'إذا كان x + 7 = 12، فإن x يساوي:', options: ['3', '4', '5', '6'], answer: 2),
-    MillionQuestion(category: 'فيزياء', difficulty: 'سهل', text: 'ما وحدة قياس القوة في النظام الدولي؟', options: ['جول', 'نيوتن', 'واط', 'فولت'], answer: 1),
-    MillionQuestion(category: 'فيزياء', difficulty: 'سهل', text: 'ما وحدة قياس الطاقة؟', options: ['جول', 'أمبير', 'متر', 'تسلا'], answer: 0),
-    MillionQuestion(category: 'فيزياء', difficulty: 'سهل', text: 'ما وحدة قياس شدة التيار الكهربائي؟', options: ['فولت', 'أوم', 'أمبير', 'واط'], answer: 2),
-    MillionQuestion(category: 'فيزياء', difficulty: 'سهل', text: 'الجهاز المستخدم لقياس شدة التيار الكهربائي هو:', options: ['الأميتر', 'الفولتميتر', 'البارومتر', 'الترمومتر'], answer: 0),
-    MillionQuestion(category: 'فيزياء', difficulty: 'سهل', text: 'ما وحدة قياس المقاومة الكهربائية؟', options: ['واط', 'أوم', 'جول', 'كولوم'], answer: 1),
-    MillionQuestion(category: 'فيزياء', difficulty: 'متوسط', text: 'سرعة الضوء في الفراغ تقارب:', options: ['3×10⁸ m/s', '3×10⁴ m/s', '3×10⁵ m/s', '3×10² m/s'], answer: 0),
-    MillionQuestion(category: 'فيزياء', difficulty: 'متوسط', text: 'أي كمية تعبّر عن معدل تغير السرعة بالنسبة للزمن؟', options: ['الكتلة', 'التسارع', 'الطاقة', 'الشغل'], answer: 1),
-    MillionQuestion(category: 'فيزياء', difficulty: 'سهل', text: 'وحدة قياس القدرة هي:', options: ['جول', 'نيوتن', 'واط', 'أوم'], answer: 2),
-    MillionQuestion(category: 'كيمياء', difficulty: 'سهل', text: 'ما الرمز الكيميائي للأوكسجين؟', options: ['O', 'H', 'N', 'C'], answer: 0),
-    MillionQuestion(category: 'كيمياء', difficulty: 'سهل', text: 'ما الرمز الكيميائي للهيدروجين؟', options: ['He', 'H', 'Hg', 'Ho'], answer: 1),
-    MillionQuestion(category: 'كيمياء', difficulty: 'سهل', text: 'ما الصيغة الكيميائية للماء؟', options: ['CO₂', 'O₂', 'H₂O', 'NaCl'], answer: 2),
-    MillionQuestion(category: 'كيمياء', difficulty: 'سهل', text: 'ما الرمز الكيميائي للصوديوم؟', options: ['S', 'So', 'Na', 'N'], answer: 2),
-    MillionQuestion(category: 'كيمياء', difficulty: 'سهل', text: 'ما الرمز الكيميائي للحديد؟', options: ['Ir', 'Fe', 'F', 'H'], answer: 1),
-    MillionQuestion(category: 'كيمياء', difficulty: 'سهل', text: 'أي عنصر رمزه C؟', options: ['الكالسيوم', 'الكربون', 'الكلور', 'النحاس'], answer: 1),
-    MillionQuestion(category: 'كيمياء', difficulty: 'متوسط', text: 'العدد الذري يمثل عدد:', options: ['البروتونات', 'المركبات', 'الجزيئات', 'الروابط'], answer: 0),
-    MillionQuestion(category: 'كيمياء', difficulty: 'سهل', text: 'أي جسيم يحمل شحنة سالبة؟', options: ['البروتون', 'النيوترون', 'الإلكترون', 'النواة'], answer: 2),
-    MillionQuestion(category: 'كيمياء', difficulty: 'سهل', text: 'أي جسيم يحمل شحنة موجبة؟', options: ['الإلكترون', 'البروتون', 'النيوترون', 'الفوتون'], answer: 1),
-    MillionQuestion(category: 'أحياء', difficulty: 'متوسط', text: 'أين توجد المادة الوراثية DNA بصورة رئيسية في الخلية حقيقية النواة؟', options: ['النواة', 'الغشاء فقط', 'الجدار الخلوي', 'الفجوة'], answer: 0),
-    MillionQuestion(category: 'أحياء', difficulty: 'سهل', text: 'ما الوحدة الأساسية لبناء جسم الكائن الحي؟', options: ['النسيج', 'العضو', 'الخلية', 'الجهاز'], answer: 2),
-    MillionQuestion(category: 'أحياء', difficulty: 'سهل', text: 'أي عضو مسؤول بصورة رئيسية عن ضخ الدم؟', options: ['الرئة', 'القلب', 'الكلية', 'المعدة'], answer: 1),
-    MillionQuestion(category: 'أحياء', difficulty: 'متوسط', text: 'أين يحدث التبادل الغازي في الرئتين؟', options: ['القصبة الهوائية', 'الحويصلات الهوائية', 'الحنجرة', 'البلعوم'], answer: 1),
-    MillionQuestion(category: 'أحياء', difficulty: 'سهل', text: 'ما وظيفة كريات الدم الحمراء الأساسية؟', options: ['نقل الأوكسجين', 'هضم الطعام', 'إنتاج البول', 'نقل الإشارات العصبية'], answer: 0),
-    MillionQuestion(category: 'أحياء', difficulty: 'متوسط', text: 'ما العضو المسؤول بصورة أساسية عن تنقية الدم وتكوين البول؟', options: ['القلب', 'الكلية', 'البنكرياس', 'الرئة'], answer: 1),
-    MillionQuestion(category: 'أحياء', difficulty: 'سهل', text: 'أي جزيء يحمل المعلومات الوراثية؟', options: ['DNA', 'H₂O', 'NaCl', 'O₂'], answer: 0),
-    MillionQuestion(category: 'English', difficulty: 'سهل', text: 'ما معنى كلمة Student؟', options: ['معلم', 'طالب', 'طبيب', 'مهندس'], answer: 1),
-    MillionQuestion(category: 'English', difficulty: 'سهل', text: 'ما الماضي من الفعل go؟', options: ['goed', 'gone', 'went', 'going'], answer: 2),
-    MillionQuestion(category: 'English', difficulty: 'سهل', text: 'ما جمع كلمة child؟', options: ['childs', 'children', 'childes', 'child'], answer: 1),
-    MillionQuestion(category: 'English', difficulty: 'سهل', text: 'أي كلمة تعني كتاب بالإنجليزية؟', options: ['Book', 'Door', 'Table', 'School'], answer: 0),
-    MillionQuestion(category: 'English', difficulty: 'سهل', text: 'ما عكس كلمة big؟', options: ['tall', 'small', 'long', 'high'], answer: 1),
-    MillionQuestion(category: 'English', difficulty: 'سهل', text: 'أكمل: I ___ a student.', options: ['is', 'are', 'am', 'be'], answer: 2),
-    MillionQuestion(category: 'English', difficulty: 'سهل', text: 'أكمل: He ___ to school every day.', options: ['go', 'goes', 'going', 'gone'], answer: 1),
-    MillionQuestion(category: 'English', difficulty: 'سهل', text: 'أي ضمير يُستخدم عادةً للإشارة إلى مجموعة من الأشخاص؟', options: ['He', 'She', 'It', 'They'], answer: 3),
-    MillionQuestion(category: 'مهارات الدراسة', difficulty: 'سهل', text: 'أي من التالي يُعد طريقة جيدة للاستعداد للامتحان؟', options: ['المراجعة المنظمة', 'ترك جميع المواد لليلة الأخيرة', 'عدم حل الأسئلة', 'عدم النوم مطلقاً'], answer: 0),
-    MillionQuestion(category: 'مهارات الدراسة', difficulty: 'متوسط', text: 'عند مواجهة مسألة رياضية صعبة، ما التصرف الأفضل؟', options: ['تركها دائماً', 'تحليل المعطيات ومحاولة تطبيق القوانين', 'اختيار جواب عشوائي مباشرة', 'حذف السؤال'], answer: 1),
-    MillionQuestion(category: 'مهارات الدراسة', difficulty: 'سهل', text: 'ما الذي يساعد الطالب على اكتشاف نقاط ضعفه؟', options: ['الاختبارات والمراجعة', 'عدم حل الأسئلة', 'تجاهل الأخطاء', 'عدم الدراسة'], answer: 0),
-    MillionQuestion(category: 'مهارات الدراسة', difficulty: 'متوسط', text: 'ما أفضل طريقة لتثبيت قانون فيزيائي؟', options: ['فهمه وتطبيقه على مسائل', 'قراءته مرة واحدة', 'تجاهله', 'حفظ اسمه فقط'], answer: 0),
-    MillionQuestion(category: 'مهارات الدراسة', difficulty: 'سهل', text: 'لماذا يُنصح بمراجعة الأخطاء بعد الاختبار؟', options: ['لمعرفة سبب الخطأ وعدم تكراره', 'لزيادة الأخطاء', 'لتجنب الدراسة', 'لا توجد فائدة'], answer: 0),
-    MillionQuestion(category: 'مهارات الدراسة', difficulty: 'سهل', text: 'ما فائدة الجدول الدراسي؟', options: ['تنظيم الوقت والمواد', 'إلغاء الدراسة', 'زيادة المشتتات', 'منع المراجعة'], answer: 0),
-    MillionQuestion(category: 'مهارات الدراسة', difficulty: 'متوسط', text: 'عند دراسة عدة مواد، الأفضل هو:', options: ['تنظيم الوقت بينها حسب الحاجة', 'دراسة جميعها في اللحظة نفسها', 'ترك المواد الصعبة', 'عدم تحديد وقت'], answer: 0),
-    MillionQuestion(category: 'مهارات الدراسة', difficulty: 'سهل', text: 'أيهما أفضل لفهم الرياضيات؟', options: ['حل المسائل والتدريب', 'قراءة أسماء القوانين فقط', 'عدم استخدام القوانين', 'حفظ الإجابات دون فهم'], answer: 0),
-    MillionQuestion(category: 'مهارات الدراسة', difficulty: 'سهل', text: 'ما فائدة أخذ استراحات مناسبة أثناء الدراسة الطويلة؟', options: ['المساعدة على استعادة التركيز', 'نسيان جميع المعلومات', 'إلغاء الحاجة للنوم', 'الاستغناء عن المراجعة'], answer: 0),
-    MillionQuestion(category: 'مهارات الدراسة', difficulty: 'متوسط', text: 'إذا اكتشف الطالب أن لديه ضعفاً في فصل معين، ما الأفضل؟', options: ['تجاهله', 'مراجعته وحل أسئلة إضافية عليه', 'ترك المادة بالكامل', 'الانتظار إلى يوم الامتحان'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'ما هي الدالة الرئيسية التي يبدأ منها تنفيذ برنامج C++؟', options: ['start()', 'run()', 'main()', 'begin()'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي رمز يُستخدم لإنهاء التعليمة في C++؟', options: [':', ';', ',', '.'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي نوع بيانات يُستخدم لتخزين الأعداد الصحيحة؟', options: ['int', 'string', 'bool', 'char'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي نوع بيانات يُستخدم عادةً لتخزين عدد عشري؟', options: ['char', 'bool', 'float', 'int'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي أمر يُستخدم لإظهار البيانات على الشاشة؟', options: ['cin', 'cout', 'input', 'scan'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي أمر يُستخدم لاستقبال البيانات من المستخدم؟', options: ['cout', 'print', 'cin', 'output'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'ما الرمز المستخدم لعملية الجمع؟', options: ['-', '*', '+', '/'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'ما الرمز المستخدم لعملية الضرب؟', options: ['*', '+', '%', '='], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'ما العامل المستخدم للتحقق من تساوي قيمتين؟', options: ['=', '==', '!=', '>='], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي كلمة تُستخدم لإنشاء شرط؟', options: ['for', 'while', 'if', 'return'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي كلمة تُستخدم لتنفيذ كود عندما يكون شرط if غير صحيح؟', options: ['else', 'case', 'break', 'continue'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي حلقة مناسبة عندما نعرف عدد مرات التكرار؟', options: ['if', 'for', 'switch', 'else'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي حلقة تستمر بالتكرار ما دام الشرط صحيحاً؟', options: ['while', 'if', 'switch', 'return'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي نوع بيانات يُستخدم لتخزين حرف واحد؟', options: ['int', 'char', 'float', 'bool'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي نوع يُستخدم لتخزين قيمة true أو false؟', options: ['string', 'double', 'bool', 'char'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي كلمة تُستخدم للخروج من الحلقة مباشرةً؟', options: ['stop', 'exit', 'break', 'close'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'ما الرمز المستخدم لكتابة تعليق من سطر واحد؟', options: ['//', '##', '--', '**'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي عامل يُستخدم للحصول على باقي القسمة؟', options: ['/', '%', '*', '+'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي كلمة تُستخدم لإرجاع قيمة من الدالة؟', options: ['break', 'return', 'cout', 'void'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي مكتبة تُستخدم عادةً مع cin وcout؟', options: ['<math>', '<string>', '<iostream>', '<input>'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي كلمة تُستخدم لتعريف ثابت لا تتغير قيمته؟', options: ['fixed', 'const', 'static', 'final'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'ما نوع البيانات المناسب لتخزين نص؟', options: ['string', 'char', 'bool', 'short'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي عامل يُستخدم لإسناد قيمة إلى متغير؟', options: ['==', '=', '=>', '!='], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'ما نتيجة التعبير 7 % 3؟', options: ['1', '2', '3', '0'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي كلمة تُستخدم لاختيار حالة من عدة حالات؟', options: ['select', 'switch', 'choose', 'caseof'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي كلمة تُستخدم مع switch لتحديد خيار؟', options: ['when', 'option', 'case', 'branch'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'سهل', text: 'أي كلمة تمنع المرور إلى الحالة التالية في switch؟', options: ['stop', 'break', 'next', 'leave'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما الفهرس الأول في مصفوفة C++؟', options: ['0', '1', '-1', 'حسب حجمها'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'أي صيغة تنشئ مصفوفة من 5 أعداد صحيحة؟', options: ['int a(5);', 'int a[5];', 'array int a;', 'int[5] a;'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما الدالة التي تعيد حجم string؟', options: ['length()', 'sizeOf()', 'count()', 'capacityOf()'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'أي حاوية تكبر حجمها تلقائياً؟', options: ['array', 'vector', 'tuple', 'pair'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما الرمز المستخدم للوصول إلى عضو عبر مؤشر؟', options: ['.', '::', '->', '&'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما الرمز الذي يعيد عنوان متغير؟', options: ['*', '&', '#', '@'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما الرمز الذي يفك إشارة المؤشر؟', options: ['*', '&', '->', '::'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ماذا تعني كلمة void في نوع إرجاع الدالة؟', options: ['تعيد رقماً', 'لا تعيد قيمة', 'تعمل مرة واحدة', 'تقبل void فقط'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما فائدة default في switch؟', options: ['تكرار الحالة', 'الخيار عند عدم تطابق أي حالة', 'إنهاء البرنامج', 'تعريف متغير'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'أي عامل منطقي يعني AND؟', options: ['||', '&&', '!', '&'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'أي عامل منطقي يعني OR؟', options: ['&&', '||', '!', '|'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما نتيجة !false؟', options: ['false', 'true', '0 فقط', 'خطأ تجميع'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما الكلمة التي تنشئ كائناً في الذاكرة الديناميكية؟', options: ['create', 'new', 'alloc', 'make'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما الكلمة التي تحرر كائناً أنشئ بـ new؟', options: ['free', 'remove', 'delete', 'clear'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما وظيفة namespace؟', options: ['تسريع البرنامج', 'تجنب تعارض الأسماء', 'حجز الذاكرة', 'إنشاء حلقة'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما الكلمة المستخدمة لتعريف صنف؟', options: ['object', 'class', 'structural', 'typeclass'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما الدالة التي تعمل تلقائياً عند إنشاء الكائن؟', options: ['starter', 'constructor', 'builder', 'initiate'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما الدالة التي تعمل عند تدمير الكائن؟', options: ['destructor', 'destroyer', 'remove', 'finalizer'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'أي محدد وصول يجعل العضو متاحاً من خارج الصنف؟', options: ['private', 'hidden', 'public', 'external'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'أي محدد وصول يجعل العضو متاحاً داخل الصنف والوريث؟', options: ['protected', 'shared', 'internal', 'safe'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'ماذا تسمى إعادة تعريف دالة في صنف مشتق؟', options: ['overloading', 'overriding', 'wrapping', 'hiding'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'ماذا تسمى دالتان بالاسم نفسه ومعاملات مختلفة؟', options: ['overloading', 'overriding', 'inheritance', 'casting'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'أي مفهوم يسمح للصنف المشتق باستخدام خصائص الصنف الأساسي؟', options: ['التغليف', 'الوراثة', 'التجريد', 'التحويل'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'ما الهدف الأساسي من الدالة الافتراضية virtual؟', options: ['منع الإنشاء', 'دعم تعدد الأشكال وقت التشغيل', 'تسريع الحلقة', 'حذف المؤشر'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'أي كلمة تمنع توريث الصنف أو إعادة تعريف الدالة؟', options: ['sealed', 'stop', 'final', 'closed'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'ما الذي تمثله RAII في C++؟', options: ['إدارة الموارد بعمر الكائن', 'نوع حلقة', 'خوارزمية بحث', 'تنسيق نص'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'أي قالب STL يربط مفتاحاً بقيمة مرتبة؟', options: ['vector', 'set', 'map', 'stack'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'أي حاوية تخزن عناصر فريدة مرتبة؟', options: ['set', 'vector', 'queue', 'list'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'ما تعقيد البحث المعتاد في std::map؟', options: ['O(1)', 'O(log n)', 'O(n²)', 'O(2ⁿ)'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'ما فائدة template في C++؟', options: ['كتابة كود عام لأنواع متعددة', 'تشغيل الخيوط', 'ضغط الملفات', 'إنشاء تعليق'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'أي استثناء قياسي يدل غالباً على فهرس خارج النطاق؟', options: ['std::out_of_range', 'std::bad_index', 'std::outside', 'std::range_error_only'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'ما الفرق الأساسي بين reference وpointer؟', options: ['لا فرق إطلاقاً', 'المرجع لا يكون فارغاً عادةً ولا يعاد ربطه', 'المؤشر لا يخزن عنواناً', 'المرجع يستخدم للأعداد فقط'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'أي كلمة تستخدم لمعالجة الاستثناءات؟', options: ['try/catch', 'check/handle', 'error/solve', 'test/fix'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'أي خوارزمية STL ترتب نطاقاً من العناصر؟', options: ['std::order', 'std::sort', 'std::arrange', 'std::organize'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'ما معنى const correctness؟', options: ['استخدام const لحماية القيم التي لا يجب تعديلها', 'منع كل الدوال', 'استخدام الثوابت فقط', 'حذف المؤشرات'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'أي مكتبة تحتوي عادةً على std::vector؟', options: ['<vector>', '<arraylist>', '<collection>', '<dynamic>'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'ما وظيفة std::cin؟', options: ['الإخراج', 'الإدخال', 'الترتيب', 'إنشاء ملف'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'أي نوع يخزن عدداً عشرياً بدقة أعلى من float غالباً؟', options: ['char', 'bool', 'double', 'short'], answer: 2),
-    MillionQuestion(category: 'C++', difficulty: 'متوسط', text: 'أي كلمة تعرّف متغيراً محلياً لا يتغير بعد تهيئته؟', options: ['const', 'fixed', 'unchange', 'readonly'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'ما النتيجة المعتادة لمحاولة الوصول إلى مؤشر null؟', options: ['قراءة صفر', 'سلوك غير صالح أو عطل', 'تحويله إلى نص', 'زيادة المؤشر'], answer: 1),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'ما المقصود بـ lvalue؟', options: ['تعبير له موقع يمكن الإسناد إليه غالباً', 'قيمة عشرية فقط', 'دالة لا تعيد قيمة', 'نوع من الحلقات'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'أي أداة تستخدم لبناء مشروع C++ وإدارة ملفاته؟', options: ['CMake', 'CImage', 'CMarkup', 'CBuildOnly'], answer: 0),
-    MillionQuestion(category: 'C++', difficulty: 'صعب', text: 'ما فائدة std::unique_ptr؟', options: ['ملكية حصرية لمورد ديناميكي', 'تخزين عدة مفاتيح', 'ترتيب النصوص', 'تشغيل حلقة'], answer: 0),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي دالة تُستخدم لطباعة النص على الشاشة في Python؟', options: ['echo()', 'print()', 'cout()', 'show()'], answer: 1),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي دالة تُستخدم لاستقبال إدخال من المستخدم؟', options: ['input()', 'scan()', 'cin()', 'read()'], answer: 0),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي نوع بيانات يُستخدم لتخزين نص؟', options: ['int', 'bool', 'str', 'float'], answer: 2),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي نوع بيانات يمثل عدداً صحيحاً؟', options: ['int', 'str', 'float', 'list'], answer: 0),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي نوع بيانات يمثل عدداً عشرياً؟', options: ['bool', 'float', 'str', 'tuple'], answer: 1),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'ما الرمز المستخدم لكتابة تعليق من سطر واحد؟', options: ['//', '#', '/*', '--'], answer: 1),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي كلمة تُستخدم لإنشاء شرط؟', options: ['if', 'for', 'def', 'print'], answer: 0),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'ما الكلمة المستخدمة إذا لم يتحقق شرط if؟', options: ['then', 'otherwise', 'else', 'case'], answer: 2),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي حلقة تُستخدم عادةً للتكرار على مجموعة من العناصر؟', options: ['if', 'for', 'def', 'try'], answer: 1),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي حلقة تستمر ما دام الشرط صحيحاً؟', options: ['while', 'switch', 'if', 'case'], answer: 0),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي كلمة تُستخدم لتعريف دالة في Python؟', options: ['function', 'fun', 'define', 'def'], answer: 3),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي عامل يُستخدم للجمع؟', options: ['*', '/', '+', '%'], answer: 2),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي عامل يُستخدم للتحقق من تساوي قيمتين؟', options: ['=', '==', '!=', '+='], answer: 1),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي رمز يُستخدم للحصول على باقي القسمة؟', options: ['%', '/', '//', '*'], answer: 0),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي نوع بيانات يخزن القيم True أو False؟', options: ['int', 'str', 'bool', 'float'], answer: 2),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي كلمة تُستخدم لإيقاف الحلقة؟', options: ['stop', 'exit', 'end', 'break'], answer: 3),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي كلمة تُستخدم لتجاوز الدورة الحالية والانتقال للدورة التالية؟', options: ['continue', 'break', 'return', 'next'], answer: 0),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي من التالي يمثل قائمة List صحيحة في Python؟', options: ['(1, 2, 3)', '[1, 2, 3]', '{1:2:3}', '<1, 2, 3>'], answer: 1),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'أي دالة تعطي عدد العناصر الموجودة في قائمة؟', options: ['size()', 'countall()', 'len()', 'length()'], answer: 2),
-    MillionQuestion(category: 'Python', difficulty: 'سهل', text: 'ما امتداد ملفات Python المعتاد؟', options: ['.cpp', '.java', '.html', '.py'], answer: 3),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي دالة يبدأ منها تنفيذ برنامج Java؟', options: ['start()', 'main()', 'run()', 'begin()'], answer: 1),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي نوع بيانات يُستخدم لتخزين عدد صحيح؟', options: ['String', 'boolean', 'int', 'double'], answer: 2),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي نوع بيانات يُستخدم لتخزين نص في Java؟', options: ['String', 'char', 'int', 'boolean'], answer: 0),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي نوع بيانات يُستخدم لتخزين حرف واحد؟', options: ['String', 'char', 'float', 'int'], answer: 1),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي نوع بيانات يخزن true أو false؟', options: ['int', 'String', 'boolean', 'char'], answer: 2),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي أمر يُستخدم لطباعة سطر على الشاشة؟', options: ['print()', 'cout', 'System.out.println()', 'echo()'], answer: 2),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'ما الرمز المستخدم لإنهاء التعليمة في Java؟', options: [':', ';', ',', '#'], answer: 1),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'ما الرمز المستخدم لكتابة تعليق من سطر واحد؟', options: ['#', '--', '//', '**'], answer: 2),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي كلمة تُستخدم لإنشاء شرط؟', options: ['if', 'loop', 'class', 'import'], answer: 0),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي كلمة تُستخدم عندما لا يتحقق شرط if؟', options: ['other', 'else', 'case', 'default'], answer: 1),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي حلقة مناسبة عندما يكون عدد مرات التكرار معروفاً؟', options: ['if', 'for', 'switch', 'try'], answer: 1),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي حلقة تستمر طالما الشرط صحيح؟', options: ['while', 'if', 'class', 'import'], answer: 0),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'ما العامل المستخدم للتحقق من تساوي قيمتين؟', options: ['=', '==', '+=', '!='], answer: 1),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'ما العامل المستخدم للحصول على باقي القسمة؟', options: ['/', '*', '%', '+'], answer: 2),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي كلمة تُستخدم لإنشاء Class؟', options: ['object', 'new', 'class', 'create'], answer: 2),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي كلمة تُستخدم لإنشاء كائن جديد؟', options: ['make', 'new', 'create', 'object'], answer: 1),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي كلمة تُستخدم للخروج من الحلقة؟', options: ['break', 'stop', 'close', 'end'], answer: 0),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي كلمة تُستخدم لإرجاع قيمة من Method؟', options: ['print', 'break', 'return', 'output'], answer: 2),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'ما امتداد ملف Java المصدري؟', options: ['.py', '.cpp', '.java', '.js'], answer: 2),
-    MillionQuestion(category: 'Java', difficulty: 'متوسط', text: 'أي كلمة تُستخدم لاستيراد مكتبة أو Class في Java؟', options: ['include', 'using', 'require', 'import'], answer: 3),
-    MillionQuestion(category: 'Java', difficulty: 'صعب', text: 'ما الفرق الأساسي بين interface وabstract class في Java؟', options: ['لا يوجد فرق', 'الواجهة تحدد عقداً ويمكن للصنف تطبيق أكثر من واجهة', 'الواجهة لا تحتوي أي دوال', 'الصنف المجرد لا يمكن توريثه'], answer: 1),
-    MillionQuestion(category: 'Java', difficulty: 'صعب', text: 'أي كلمة تمنع توريث الصنف أو إعادة تعريف الدالة؟', options: ['sealed', 'final', 'static', 'private'], answer: 1),
-    MillionQuestion(category: 'Java', difficulty: 'صعب', text: 'أي مجموعة تحفظ ترتيب الإدخال وتسمح بالتكرار؟', options: ['HashSet', 'TreeSet', 'ArrayList', 'HashMap'], answer: 2),
-    MillionQuestion(category: 'Java', difficulty: 'صعب', text: 'ما تعقيد الوصول إلى عنصر في ArrayList باستخدام الفهرس؟', options: ['O(1)', 'O(log n)', 'O(n)', 'O(n²)'], answer: 0),
-    MillionQuestion(category: 'Java', difficulty: 'صعب', text: 'أي استثناء يحدث غالباً عند القسمة الصحيحة على صفر؟', options: ['IOException', 'NullPointerException', 'ArithmeticException', 'IndexOutOfBoundsException'], answer: 2),
-    MillionQuestion(category: 'Java', difficulty: 'صعب', text: 'ماذا تعني كلمة synchronized غالباً؟', options: ['منع إنشاء الكائن', 'تنظيم الوصول المتزامن إلى مورد مشترك', 'تسريع البرنامج', 'تحويل النص'], answer: 1),
-    MillionQuestion(category: 'Java', difficulty: 'صعب', text: 'ما وظيفة Garbage Collector؟', options: ['ترجمة الكود', 'تحرير الذاكرة للكائنات غير المستخدمة', 'إدارة قواعد البيانات', 'تشفير النصوص'], answer: 1),
-    MillionQuestion(category: 'Java', difficulty: 'صعب', text: 'أي مفهوم يسمح للدالة نفسها بسلوك مختلف حسب الكائن؟', options: ['التغليف', 'تعدد الأشكال', 'التحويل', 'التجميع'], answer: 1),
-    MillionQuestion(category: 'Java', difficulty: 'صعب', text: 'ما فائدة Optional في Java الحديثة؟', options: ['تمثيل قيمة قد تكون موجودة أو غائبة', 'إنشاء خيط جديد', 'ترتيب مصفوفة', 'حذف الاستثناءات'], answer: 0),
-    MillionQuestion(category: 'Java', difficulty: 'صعب', text: 'أي بنية تربط مفتاحاً بقيمة في Java؟', options: ['List', 'Set', 'Map', 'QueueOnly'], answer: 2),
+    MillionQuestion(
+      category: 'رياضيات',
+      difficulty: 'سهل',
+      text: 'ما قيمة الجذر التربيعي للعدد 144؟',
+      options: ['10', '11', '12', '14'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'رياضيات',
+      difficulty: 'سهل',
+      text: 'إذا كان 2x = 10، فما قيمة x؟',
+      options: ['2', '5', '10', '20'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'رياضيات',
+      difficulty: 'متوسط',
+      text: 'ما مشتقة x²؟',
+      options: ['x', '2x', 'x³', '2'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'رياضيات',
+      difficulty: 'سهل',
+      text: 'ما قيمة 5²؟',
+      options: ['10', '15', '20', '25'],
+      answer: 3,
+    ),
+    MillionQuestion(
+      category: 'رياضيات',
+      difficulty: 'سهل',
+      text: 'أي من الآتي يمثل عدداً أولياً؟',
+      options: ['9', '15', '17', '21'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'رياضيات',
+      difficulty: 'سهل',
+      text: 'مجموع زوايا المثلث يساوي:',
+      options: ['90°', '180°', '270°', '360°'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'رياضيات',
+      difficulty: 'سهل',
+      text: 'ما قيمة 3³؟',
+      options: ['9', '18', '27', '81'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'رياضيات',
+      difficulty: 'سهل',
+      text: 'إذا كان x + 7 = 12، فإن x يساوي:',
+      options: ['3', '4', '5', '6'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'فيزياء',
+      difficulty: 'سهل',
+      text: 'ما وحدة قياس القوة في النظام الدولي؟',
+      options: ['جول', 'نيوتن', 'واط', 'فولت'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'فيزياء',
+      difficulty: 'سهل',
+      text: 'ما وحدة قياس الطاقة؟',
+      options: ['جول', 'أمبير', 'متر', 'تسلا'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'فيزياء',
+      difficulty: 'سهل',
+      text: 'ما وحدة قياس شدة التيار الكهربائي؟',
+      options: ['فولت', 'أوم', 'أمبير', 'واط'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'فيزياء',
+      difficulty: 'سهل',
+      text: 'الجهاز المستخدم لقياس شدة التيار الكهربائي هو:',
+      options: ['الأميتر', 'الفولتميتر', 'البارومتر', 'الترمومتر'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'فيزياء',
+      difficulty: 'سهل',
+      text: 'ما وحدة قياس المقاومة الكهربائية؟',
+      options: ['واط', 'أوم', 'جول', 'كولوم'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'فيزياء',
+      difficulty: 'متوسط',
+      text: 'سرعة الضوء في الفراغ تقارب:',
+      options: ['3×10⁸ m/s', '3×10⁴ m/s', '3×10⁵ m/s', '3×10² m/s'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'فيزياء',
+      difficulty: 'متوسط',
+      text: 'أي كمية تعبّر عن معدل تغير السرعة بالنسبة للزمن؟',
+      options: ['الكتلة', 'التسارع', 'الطاقة', 'الشغل'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'فيزياء',
+      difficulty: 'سهل',
+      text: 'وحدة قياس القدرة هي:',
+      options: ['جول', 'نيوتن', 'واط', 'أوم'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'كيمياء',
+      difficulty: 'سهل',
+      text: 'ما الرمز الكيميائي للأوكسجين؟',
+      options: ['O', 'H', 'N', 'C'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'كيمياء',
+      difficulty: 'سهل',
+      text: 'ما الرمز الكيميائي للهيدروجين؟',
+      options: ['He', 'H', 'Hg', 'Ho'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'كيمياء',
+      difficulty: 'سهل',
+      text: 'ما الصيغة الكيميائية للماء؟',
+      options: ['CO₂', 'O₂', 'H₂O', 'NaCl'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'كيمياء',
+      difficulty: 'سهل',
+      text: 'ما الرمز الكيميائي للصوديوم؟',
+      options: ['S', 'So', 'Na', 'N'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'كيمياء',
+      difficulty: 'سهل',
+      text: 'ما الرمز الكيميائي للحديد؟',
+      options: ['Ir', 'Fe', 'F', 'H'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'كيمياء',
+      difficulty: 'سهل',
+      text: 'أي عنصر رمزه C؟',
+      options: ['الكالسيوم', 'الكربون', 'الكلور', 'النحاس'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'كيمياء',
+      difficulty: 'متوسط',
+      text: 'العدد الذري يمثل عدد:',
+      options: ['البروتونات', 'المركبات', 'الجزيئات', 'الروابط'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'كيمياء',
+      difficulty: 'سهل',
+      text: 'أي جسيم يحمل شحنة سالبة؟',
+      options: ['البروتون', 'النيوترون', 'الإلكترون', 'النواة'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'كيمياء',
+      difficulty: 'سهل',
+      text: 'أي جسيم يحمل شحنة موجبة؟',
+      options: ['الإلكترون', 'البروتون', 'النيوترون', 'الفوتون'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'أحياء',
+      difficulty: 'متوسط',
+      text:
+          'أين توجد المادة الوراثية DNA بصورة رئيسية في الخلية حقيقية النواة؟',
+      options: ['النواة', 'الغشاء فقط', 'الجدار الخلوي', 'الفجوة'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'أحياء',
+      difficulty: 'سهل',
+      text: 'ما الوحدة الأساسية لبناء جسم الكائن الحي؟',
+      options: ['النسيج', 'العضو', 'الخلية', 'الجهاز'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'أحياء',
+      difficulty: 'سهل',
+      text: 'أي عضو مسؤول بصورة رئيسية عن ضخ الدم؟',
+      options: ['الرئة', 'القلب', 'الكلية', 'المعدة'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'أحياء',
+      difficulty: 'متوسط',
+      text: 'أين يحدث التبادل الغازي في الرئتين؟',
+      options: ['القصبة الهوائية', 'الحويصلات الهوائية', 'الحنجرة', 'البلعوم'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'أحياء',
+      difficulty: 'سهل',
+      text: 'ما وظيفة كريات الدم الحمراء الأساسية؟',
+      options: [
+        'نقل الأوكسجين',
+        'هضم الطعام',
+        'إنتاج البول',
+        'نقل الإشارات العصبية',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'أحياء',
+      difficulty: 'متوسط',
+      text: 'ما العضو المسؤول بصورة أساسية عن تنقية الدم وتكوين البول؟',
+      options: ['القلب', 'الكلية', 'البنكرياس', 'الرئة'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'أحياء',
+      difficulty: 'سهل',
+      text: 'أي جزيء يحمل المعلومات الوراثية؟',
+      options: ['DNA', 'H₂O', 'NaCl', 'O₂'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'English',
+      difficulty: 'سهل',
+      text: 'ما معنى كلمة Student؟',
+      options: ['معلم', 'طالب', 'طبيب', 'مهندس'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'English',
+      difficulty: 'سهل',
+      text: 'ما الماضي من الفعل go؟',
+      options: ['goed', 'gone', 'went', 'going'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'English',
+      difficulty: 'سهل',
+      text: 'ما جمع كلمة child؟',
+      options: ['childs', 'children', 'childes', 'child'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'English',
+      difficulty: 'سهل',
+      text: 'أي كلمة تعني كتاب بالإنجليزية؟',
+      options: ['Book', 'Door', 'Table', 'School'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'English',
+      difficulty: 'سهل',
+      text: 'ما عكس كلمة big؟',
+      options: ['tall', 'small', 'long', 'high'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'English',
+      difficulty: 'سهل',
+      text: 'أكمل: I ___ a student.',
+      options: ['is', 'are', 'am', 'be'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'English',
+      difficulty: 'سهل',
+      text: 'أكمل: He ___ to school every day.',
+      options: ['go', 'goes', 'going', 'gone'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'English',
+      difficulty: 'سهل',
+      text: 'أي ضمير يُستخدم عادةً للإشارة إلى مجموعة من الأشخاص؟',
+      options: ['He', 'She', 'It', 'They'],
+      answer: 3,
+    ),
+    MillionQuestion(
+      category: 'مهارات الدراسة',
+      difficulty: 'سهل',
+      text: 'أي من التالي يُعد طريقة جيدة للاستعداد للامتحان؟',
+      options: [
+        'المراجعة المنظمة',
+        'ترك جميع المواد لليلة الأخيرة',
+        'عدم حل الأسئلة',
+        'عدم النوم مطلقاً',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'مهارات الدراسة',
+      difficulty: 'متوسط',
+      text: 'عند مواجهة مسألة رياضية صعبة، ما التصرف الأفضل؟',
+      options: [
+        'تركها دائماً',
+        'تحليل المعطيات ومحاولة تطبيق القوانين',
+        'اختيار جواب عشوائي مباشرة',
+        'حذف السؤال',
+      ],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'مهارات الدراسة',
+      difficulty: 'سهل',
+      text: 'ما الذي يساعد الطالب على اكتشاف نقاط ضعفه؟',
+      options: [
+        'الاختبارات والمراجعة',
+        'عدم حل الأسئلة',
+        'تجاهل الأخطاء',
+        'عدم الدراسة',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'مهارات الدراسة',
+      difficulty: 'متوسط',
+      text: 'ما أفضل طريقة لتثبيت قانون فيزيائي؟',
+      options: [
+        'فهمه وتطبيقه على مسائل',
+        'قراءته مرة واحدة',
+        'تجاهله',
+        'حفظ اسمه فقط',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'مهارات الدراسة',
+      difficulty: 'سهل',
+      text: 'لماذا يُنصح بمراجعة الأخطاء بعد الاختبار؟',
+      options: [
+        'لمعرفة سبب الخطأ وعدم تكراره',
+        'لزيادة الأخطاء',
+        'لتجنب الدراسة',
+        'لا توجد فائدة',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'مهارات الدراسة',
+      difficulty: 'سهل',
+      text: 'ما فائدة الجدول الدراسي؟',
+      options: [
+        'تنظيم الوقت والمواد',
+        'إلغاء الدراسة',
+        'زيادة المشتتات',
+        'منع المراجعة',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'مهارات الدراسة',
+      difficulty: 'متوسط',
+      text: 'عند دراسة عدة مواد، الأفضل هو:',
+      options: [
+        'تنظيم الوقت بينها حسب الحاجة',
+        'دراسة جميعها في اللحظة نفسها',
+        'ترك المواد الصعبة',
+        'عدم تحديد وقت',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'مهارات الدراسة',
+      difficulty: 'سهل',
+      text: 'أيهما أفضل لفهم الرياضيات؟',
+      options: [
+        'حل المسائل والتدريب',
+        'قراءة أسماء القوانين فقط',
+        'عدم استخدام القوانين',
+        'حفظ الإجابات دون فهم',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'مهارات الدراسة',
+      difficulty: 'سهل',
+      text: 'ما فائدة أخذ استراحات مناسبة أثناء الدراسة الطويلة؟',
+      options: [
+        'المساعدة على استعادة التركيز',
+        'نسيان جميع المعلومات',
+        'إلغاء الحاجة للنوم',
+        'الاستغناء عن المراجعة',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'مهارات الدراسة',
+      difficulty: 'متوسط',
+      text: 'إذا اكتشف الطالب أن لديه ضعفاً في فصل معين، ما الأفضل؟',
+      options: [
+        'تجاهله',
+        'مراجعته وحل أسئلة إضافية عليه',
+        'ترك المادة بالكامل',
+        'الانتظار إلى يوم الامتحان',
+      ],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'ما هي الدالة الرئيسية التي يبدأ منها تنفيذ برنامج C++؟',
+      options: ['start()', 'run()', 'main()', 'begin()'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي رمز يُستخدم لإنهاء التعليمة في C++؟',
+      options: [':', ';', ',', '.'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي نوع بيانات يُستخدم لتخزين الأعداد الصحيحة؟',
+      options: ['int', 'string', 'bool', 'char'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي نوع بيانات يُستخدم عادةً لتخزين عدد عشري؟',
+      options: ['char', 'bool', 'float', 'int'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي أمر يُستخدم لإظهار البيانات على الشاشة؟',
+      options: ['cin', 'cout', 'input', 'scan'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي أمر يُستخدم لاستقبال البيانات من المستخدم؟',
+      options: ['cout', 'print', 'cin', 'output'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'ما الرمز المستخدم لعملية الجمع؟',
+      options: ['-', '*', '+', '/'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'ما الرمز المستخدم لعملية الضرب؟',
+      options: ['*', '+', '%', '='],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'ما العامل المستخدم للتحقق من تساوي قيمتين؟',
+      options: ['=', '==', '!=', '>='],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي كلمة تُستخدم لإنشاء شرط؟',
+      options: ['for', 'while', 'if', 'return'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي كلمة تُستخدم لتنفيذ كود عندما يكون شرط if غير صحيح؟',
+      options: ['else', 'case', 'break', 'continue'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي حلقة مناسبة عندما نعرف عدد مرات التكرار؟',
+      options: ['if', 'for', 'switch', 'else'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي حلقة تستمر بالتكرار ما دام الشرط صحيحاً؟',
+      options: ['while', 'if', 'switch', 'return'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي نوع بيانات يُستخدم لتخزين حرف واحد؟',
+      options: ['int', 'char', 'float', 'bool'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي نوع يُستخدم لتخزين قيمة true أو false؟',
+      options: ['string', 'double', 'bool', 'char'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي كلمة تُستخدم للخروج من الحلقة مباشرةً؟',
+      options: ['stop', 'exit', 'break', 'close'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'ما الرمز المستخدم لكتابة تعليق من سطر واحد؟',
+      options: ['//', '##', '--', '**'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي عامل يُستخدم للحصول على باقي القسمة؟',
+      options: ['/', '%', '*', '+'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي كلمة تُستخدم لإرجاع قيمة من الدالة؟',
+      options: ['break', 'return', 'cout', 'void'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي مكتبة تُستخدم عادةً مع cin وcout؟',
+      options: ['<math>', '<string>', '<iostream>', '<input>'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي كلمة تُستخدم لتعريف ثابت لا تتغير قيمته؟',
+      options: ['fixed', 'const', 'static', 'final'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'ما نوع البيانات المناسب لتخزين نص؟',
+      options: ['string', 'char', 'bool', 'short'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي عامل يُستخدم لإسناد قيمة إلى متغير؟',
+      options: ['==', '=', '=>', '!='],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'ما نتيجة التعبير 7 % 3؟',
+      options: ['1', '2', '3', '0'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي كلمة تُستخدم لاختيار حالة من عدة حالات؟',
+      options: ['select', 'switch', 'choose', 'caseof'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي كلمة تُستخدم مع switch لتحديد خيار؟',
+      options: ['when', 'option', 'case', 'branch'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'سهل',
+      text: 'أي كلمة تمنع المرور إلى الحالة التالية في switch؟',
+      options: ['stop', 'break', 'next', 'leave'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما الفهرس الأول في مصفوفة C++؟',
+      options: ['0', '1', '-1', 'حسب حجمها'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'أي صيغة تنشئ مصفوفة من 5 أعداد صحيحة؟',
+      options: ['int a(5);', 'int a[5];', 'array int a;', 'int[5] a;'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما الدالة التي تعيد حجم string؟',
+      options: ['length()', 'sizeOf()', 'count()', 'capacityOf()'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'أي حاوية تكبر حجمها تلقائياً؟',
+      options: ['array', 'vector', 'tuple', 'pair'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما الرمز المستخدم للوصول إلى عضو عبر مؤشر؟',
+      options: ['.', '::', '->', '&'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما الرمز الذي يعيد عنوان متغير؟',
+      options: ['*', '&', '#', '@'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما الرمز الذي يفك إشارة المؤشر؟',
+      options: ['*', '&', '->', '::'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ماذا تعني كلمة void في نوع إرجاع الدالة؟',
+      options: [
+        'تعيد رقماً',
+        'لا تعيد قيمة',
+        'تعمل مرة واحدة',
+        'تقبل void فقط',
+      ],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما فائدة default في switch؟',
+      options: [
+        'تكرار الحالة',
+        'الخيار عند عدم تطابق أي حالة',
+        'إنهاء البرنامج',
+        'تعريف متغير',
+      ],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'أي عامل منطقي يعني AND؟',
+      options: ['||', '&&', '!', '&'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'أي عامل منطقي يعني OR؟',
+      options: ['&&', '||', '!', '|'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما نتيجة !false؟',
+      options: ['false', 'true', '0 فقط', 'خطأ تجميع'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما الكلمة التي تنشئ كائناً في الذاكرة الديناميكية؟',
+      options: ['create', 'new', 'alloc', 'make'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما الكلمة التي تحرر كائناً أنشئ بـ new؟',
+      options: ['free', 'remove', 'delete', 'clear'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما وظيفة namespace؟',
+      options: [
+        'تسريع البرنامج',
+        'تجنب تعارض الأسماء',
+        'حجز الذاكرة',
+        'إنشاء حلقة',
+      ],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما الكلمة المستخدمة لتعريف صنف؟',
+      options: ['object', 'class', 'structural', 'typeclass'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما الدالة التي تعمل تلقائياً عند إنشاء الكائن؟',
+      options: ['starter', 'constructor', 'builder', 'initiate'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما الدالة التي تعمل عند تدمير الكائن؟',
+      options: ['destructor', 'destroyer', 'remove', 'finalizer'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'أي محدد وصول يجعل العضو متاحاً من خارج الصنف؟',
+      options: ['private', 'hidden', 'public', 'external'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'أي محدد وصول يجعل العضو متاحاً داخل الصنف والوريث؟',
+      options: ['protected', 'shared', 'internal', 'safe'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'ماذا تسمى إعادة تعريف دالة في صنف مشتق؟',
+      options: ['overloading', 'overriding', 'wrapping', 'hiding'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'ماذا تسمى دالتان بالاسم نفسه ومعاملات مختلفة؟',
+      options: ['overloading', 'overriding', 'inheritance', 'casting'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'أي مفهوم يسمح للصنف المشتق باستخدام خصائص الصنف الأساسي؟',
+      options: ['التغليف', 'الوراثة', 'التجريد', 'التحويل'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'ما الهدف الأساسي من الدالة الافتراضية virtual؟',
+      options: [
+        'منع الإنشاء',
+        'دعم تعدد الأشكال وقت التشغيل',
+        'تسريع الحلقة',
+        'حذف المؤشر',
+      ],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'أي كلمة تمنع توريث الصنف أو إعادة تعريف الدالة؟',
+      options: ['sealed', 'stop', 'final', 'closed'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'ما الذي تمثله RAII في C++؟',
+      options: [
+        'إدارة الموارد بعمر الكائن',
+        'نوع حلقة',
+        'خوارزمية بحث',
+        'تنسيق نص',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'أي قالب STL يربط مفتاحاً بقيمة مرتبة؟',
+      options: ['vector', 'set', 'map', 'stack'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'أي حاوية تخزن عناصر فريدة مرتبة؟',
+      options: ['set', 'vector', 'queue', 'list'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'ما تعقيد البحث المعتاد في std::map؟',
+      options: ['O(1)', 'O(log n)', 'O(n²)', 'O(2ⁿ)'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'ما فائدة template في C++؟',
+      options: [
+        'كتابة كود عام لأنواع متعددة',
+        'تشغيل الخيوط',
+        'ضغط الملفات',
+        'إنشاء تعليق',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'أي استثناء قياسي يدل غالباً على فهرس خارج النطاق؟',
+      options: [
+        'std::out_of_range',
+        'std::bad_index',
+        'std::outside',
+        'std::range_error_only',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'ما الفرق الأساسي بين reference وpointer؟',
+      options: [
+        'لا فرق إطلاقاً',
+        'المرجع لا يكون فارغاً عادةً ولا يعاد ربطه',
+        'المؤشر لا يخزن عنواناً',
+        'المرجع يستخدم للأعداد فقط',
+      ],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'أي كلمة تستخدم لمعالجة الاستثناءات؟',
+      options: ['try/catch', 'check/handle', 'error/solve', 'test/fix'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'أي خوارزمية STL ترتب نطاقاً من العناصر؟',
+      options: ['std::order', 'std::sort', 'std::arrange', 'std::organize'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'ما معنى const correctness؟',
+      options: [
+        'استخدام const لحماية القيم التي لا يجب تعديلها',
+        'منع كل الدوال',
+        'استخدام الثوابت فقط',
+        'حذف المؤشرات',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'أي مكتبة تحتوي عادةً على std::vector؟',
+      options: ['<vector>', '<arraylist>', '<collection>', '<dynamic>'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'ما وظيفة std::cin؟',
+      options: ['الإخراج', 'الإدخال', 'الترتيب', 'إنشاء ملف'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'أي نوع يخزن عدداً عشرياً بدقة أعلى من float غالباً؟',
+      options: ['char', 'bool', 'double', 'short'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'متوسط',
+      text: 'أي كلمة تعرّف متغيراً محلياً لا يتغير بعد تهيئته؟',
+      options: ['const', 'fixed', 'unchange', 'readonly'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'ما النتيجة المعتادة لمحاولة الوصول إلى مؤشر null؟',
+      options: [
+        'قراءة صفر',
+        'سلوك غير صالح أو عطل',
+        'تحويله إلى نص',
+        'زيادة المؤشر',
+      ],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'ما المقصود بـ lvalue؟',
+      options: [
+        'تعبير له موقع يمكن الإسناد إليه غالباً',
+        'قيمة عشرية فقط',
+        'دالة لا تعيد قيمة',
+        'نوع من الحلقات',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'أي أداة تستخدم لبناء مشروع C++ وإدارة ملفاته؟',
+      options: ['CMake', 'CImage', 'CMarkup', 'CBuildOnly'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'C++',
+      difficulty: 'صعب',
+      text: 'ما فائدة std::unique_ptr؟',
+      options: [
+        'ملكية حصرية لمورد ديناميكي',
+        'تخزين عدة مفاتيح',
+        'ترتيب النصوص',
+        'تشغيل حلقة',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي دالة تُستخدم لطباعة النص على الشاشة في Python؟',
+      options: ['echo()', 'print()', 'cout()', 'show()'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي دالة تُستخدم لاستقبال إدخال من المستخدم؟',
+      options: ['input()', 'scan()', 'cin()', 'read()'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي نوع بيانات يُستخدم لتخزين نص؟',
+      options: ['int', 'bool', 'str', 'float'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي نوع بيانات يمثل عدداً صحيحاً؟',
+      options: ['int', 'str', 'float', 'list'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي نوع بيانات يمثل عدداً عشرياً؟',
+      options: ['bool', 'float', 'str', 'tuple'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'ما الرمز المستخدم لكتابة تعليق من سطر واحد؟',
+      options: ['//', '#', '/*', '--'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي كلمة تُستخدم لإنشاء شرط؟',
+      options: ['if', 'for', 'def', 'print'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'ما الكلمة المستخدمة إذا لم يتحقق شرط if؟',
+      options: ['then', 'otherwise', 'else', 'case'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي حلقة تُستخدم عادةً للتكرار على مجموعة من العناصر؟',
+      options: ['if', 'for', 'def', 'try'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي حلقة تستمر ما دام الشرط صحيحاً؟',
+      options: ['while', 'switch', 'if', 'case'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي كلمة تُستخدم لتعريف دالة في Python؟',
+      options: ['function', 'fun', 'define', 'def'],
+      answer: 3,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي عامل يُستخدم للجمع؟',
+      options: ['*', '/', '+', '%'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي عامل يُستخدم للتحقق من تساوي قيمتين؟',
+      options: ['=', '==', '!=', '+='],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي رمز يُستخدم للحصول على باقي القسمة؟',
+      options: ['%', '/', '//', '*'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي نوع بيانات يخزن القيم True أو False؟',
+      options: ['int', 'str', 'bool', 'float'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي كلمة تُستخدم لإيقاف الحلقة؟',
+      options: ['stop', 'exit', 'end', 'break'],
+      answer: 3,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي كلمة تُستخدم لتجاوز الدورة الحالية والانتقال للدورة التالية؟',
+      options: ['continue', 'break', 'return', 'next'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي من التالي يمثل قائمة List صحيحة في Python؟',
+      options: ['(1, 2, 3)', '[1, 2, 3]', '{1:2:3}', '<1, 2, 3>'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'أي دالة تعطي عدد العناصر الموجودة في قائمة؟',
+      options: ['size()', 'countall()', 'len()', 'length()'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Python',
+      difficulty: 'سهل',
+      text: 'ما امتداد ملفات Python المعتاد؟',
+      options: ['.cpp', '.java', '.html', '.py'],
+      answer: 3,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي دالة يبدأ منها تنفيذ برنامج Java؟',
+      options: ['start()', 'main()', 'run()', 'begin()'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي نوع بيانات يُستخدم لتخزين عدد صحيح؟',
+      options: ['String', 'boolean', 'int', 'double'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي نوع بيانات يُستخدم لتخزين نص في Java؟',
+      options: ['String', 'char', 'int', 'boolean'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي نوع بيانات يُستخدم لتخزين حرف واحد؟',
+      options: ['String', 'char', 'float', 'int'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي نوع بيانات يخزن true أو false؟',
+      options: ['int', 'String', 'boolean', 'char'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي أمر يُستخدم لطباعة سطر على الشاشة؟',
+      options: ['print()', 'cout', 'System.out.println()', 'echo()'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'ما الرمز المستخدم لإنهاء التعليمة في Java؟',
+      options: [':', ';', ',', '#'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'ما الرمز المستخدم لكتابة تعليق من سطر واحد؟',
+      options: ['#', '--', '//', '**'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي كلمة تُستخدم لإنشاء شرط؟',
+      options: ['if', 'loop', 'class', 'import'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي كلمة تُستخدم عندما لا يتحقق شرط if؟',
+      options: ['other', 'else', 'case', 'default'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي حلقة مناسبة عندما يكون عدد مرات التكرار معروفاً؟',
+      options: ['if', 'for', 'switch', 'try'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي حلقة تستمر طالما الشرط صحيح؟',
+      options: ['while', 'if', 'class', 'import'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'ما العامل المستخدم للتحقق من تساوي قيمتين؟',
+      options: ['=', '==', '+=', '!='],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'ما العامل المستخدم للحصول على باقي القسمة؟',
+      options: ['/', '*', '%', '+'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي كلمة تُستخدم لإنشاء Class؟',
+      options: ['object', 'new', 'class', 'create'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي كلمة تُستخدم لإنشاء كائن جديد؟',
+      options: ['make', 'new', 'create', 'object'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي كلمة تُستخدم للخروج من الحلقة؟',
+      options: ['break', 'stop', 'close', 'end'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي كلمة تُستخدم لإرجاع قيمة من Method؟',
+      options: ['print', 'break', 'return', 'output'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'ما امتداد ملف Java المصدري؟',
+      options: ['.py', '.cpp', '.java', '.js'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'متوسط',
+      text: 'أي كلمة تُستخدم لاستيراد مكتبة أو Class في Java؟',
+      options: ['include', 'using', 'require', 'import'],
+      answer: 3,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'صعب',
+      text: 'ما الفرق الأساسي بين interface وabstract class في Java؟',
+      options: [
+        'لا يوجد فرق',
+        'الواجهة تحدد عقداً ويمكن للصنف تطبيق أكثر من واجهة',
+        'الواجهة لا تحتوي أي دوال',
+        'الصنف المجرد لا يمكن توريثه',
+      ],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'صعب',
+      text: 'أي كلمة تمنع توريث الصنف أو إعادة تعريف الدالة؟',
+      options: ['sealed', 'final', 'static', 'private'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'صعب',
+      text: 'أي مجموعة تحفظ ترتيب الإدخال وتسمح بالتكرار؟',
+      options: ['HashSet', 'TreeSet', 'ArrayList', 'HashMap'],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'صعب',
+      text: 'ما تعقيد الوصول إلى عنصر في ArrayList باستخدام الفهرس؟',
+      options: ['O(1)', 'O(log n)', 'O(n)', 'O(n²)'],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'صعب',
+      text: 'أي استثناء يحدث غالباً عند القسمة الصحيحة على صفر؟',
+      options: [
+        'IOException',
+        'NullPointerException',
+        'ArithmeticException',
+        'IndexOutOfBoundsException',
+      ],
+      answer: 2,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'صعب',
+      text: 'ماذا تعني كلمة synchronized غالباً؟',
+      options: [
+        'منع إنشاء الكائن',
+        'تنظيم الوصول المتزامن إلى مورد مشترك',
+        'تسريع البرنامج',
+        'تحويل النص',
+      ],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'صعب',
+      text: 'ما وظيفة Garbage Collector؟',
+      options: [
+        'ترجمة الكود',
+        'تحرير الذاكرة للكائنات غير المستخدمة',
+        'إدارة قواعد البيانات',
+        'تشفير النصوص',
+      ],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'صعب',
+      text: 'أي مفهوم يسمح للدالة نفسها بسلوك مختلف حسب الكائن؟',
+      options: ['التغليف', 'تعدد الأشكال', 'التحويل', 'التجميع'],
+      answer: 1,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'صعب',
+      text: 'ما فائدة Optional في Java الحديثة؟',
+      options: [
+        'تمثيل قيمة قد تكون موجودة أو غائبة',
+        'إنشاء خيط جديد',
+        'ترتيب مصفوفة',
+        'حذف الاستثناءات',
+      ],
+      answer: 0,
+    ),
+    MillionQuestion(
+      category: 'Java',
+      difficulty: 'صعب',
+      text: 'أي بنية تربط مفتاحاً بقيمة في Java؟',
+      options: ['List', 'Set', 'Map', 'QueueOnly'],
+      answer: 2,
+    ),
     MillionQuestion(
       category: 'ثقافة عامة',
       text: 'أي من الآتي يُعد من الكواكب الداخلية في المجموعة الشمسية؟',
@@ -3742,7 +6726,12 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
     MillionQuestion(
       category: 'منطق',
       text: 'إذا كان كل مربع مستطيلاً، فما العبارة الصحيحة؟',
-      options: ['كل مستطيل مربع', 'بعض المربعات ليست مستطيلات', 'كل مربع مستطيل', 'لا علاقة بينهما'],
+      options: [
+        'كل مستطيل مربع',
+        'بعض المربعات ليست مستطيلات',
+        'كل مربع مستطيل',
+        'لا علاقة بينهما',
+      ],
       answer: 2,
       difficulty: 'صعب',
     ),
@@ -3871,7 +6860,8 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
     _loadProgress();
   }
 
-  String _questionKey(MillionQuestion value) => '${value.category}|${value.text}';
+  String _questionKey(MillionQuestion value) =>
+      '${value.category}|${value.text}';
 
   void _startQuestionCycle() {
     _cancelQuestionCycle();
@@ -3890,16 +6880,24 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
   void _startQuestionPresentation(int cycle) {
     for (var index = 0; index < optionRevealDelays.length; index++) {
       final revealIndex = index + 1;
-      optionRevealTimers.add(Timer(optionRevealDelays[index], () {
-        if (!_isQuestionCycleActive(cycle)) return;
-        setState(() => revealedOptionCount = revealIndex);
-        unawaited(_playOptionSequence(cycle));
-        if (revealIndex == optionRevealDelays.length) _startQuestionTimer(cycle);
-      }));
+      optionRevealTimers.add(
+        Timer(optionRevealDelays[index], () {
+          if (!_isQuestionCycleActive(cycle)) return;
+          setState(() => revealedOptionCount = revealIndex);
+          unawaited(_playOptionSequence(cycle));
+          if (revealIndex == optionRevealDelays.length)
+            _startQuestionTimer(cycle);
+        }),
+      );
     }
   }
 
-  bool _isQuestionCycleActive(int cycle) => mounted && cycle == questionCycle && !answered && !finished && !attemptLost;
+  bool _isQuestionCycleActive(int cycle) =>
+      mounted &&
+      cycle == questionCycle &&
+      !answered &&
+      !finished &&
+      !attemptLost;
 
   Future<void> _playQuestionSound(int cycle) async {
     try {
@@ -3928,7 +6926,9 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
       if (!_isQuestionCycleActive(cycle)) return;
       final deadline = questionDeadline;
       if (deadline == null) return;
-      final millisecondsLeft = deadline.difference(DateTime.now()).inMilliseconds;
+      final millisecondsLeft = deadline
+          .difference(DateTime.now())
+          .inMilliseconds;
       if (millisecondsLeft <= 0) {
         _timeExpired();
       } else {
@@ -3958,10 +6958,7 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
     countdownTickTimer = null;
     _queueCountdownStop();
     try {
-      await Future.wait([
-        questionPlayer.stop(),
-        optionSequencePlayer.stop(),
-      ]);
+      await Future.wait([questionPlayer.stop(), optionSequencePlayer.stop()]);
     } catch (_) {}
   }
 
@@ -3981,7 +6978,9 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
       unawaited(_playCountdownTick(cycle));
       countdownTickTimer?.cancel();
       countdownTickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (!_isQuestionCycleActive(cycle) || !timerStarted || secondsRemaining <= 0) {
+        if (!_isQuestionCycleActive(cycle) ||
+            !timerStarted ||
+            secondsRemaining <= 0) {
           countdownTickTimer?.cancel();
           countdownTickTimer = null;
           return;
@@ -3994,7 +6993,10 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
   Future<void> _playCountdownTick(int cycle) async {
     try {
       await countdownPlayer.stop();
-      if (!_isQuestionCycleActive(cycle) || !timerStarted || secondsRemaining <= 0) return;
+      if (!_isQuestionCycleActive(cycle) ||
+          !timerStarted ||
+          secondsRemaining <= 0)
+        return;
       await countdownPlayer.play(AssetSource('audio/34.mp3'));
     } catch (_) {}
   }
@@ -4025,12 +7027,17 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
         final seenKey = 'million_seen_questions_$currentUser';
         shownQuestionKeys = preferences.getStringList(seenKey)?.toSet() ?? {};
         _prepareQuestionOrder();
-        current = (preferences.getInt('million_current') ?? 0).clamp(0, gameQuestions.length - 1);
+        current = (preferences.getInt('million_current') ?? 0).clamp(
+          0,
+          gameQuestions.length - 1,
+        );
         score = preferences.getInt('million_score') ?? 0;
         diamondBalance = preferences.getInt('million_diamonds') ?? 0;
         wrongAnswers = preferences.getInt('million_wrong_answers') ?? 0;
         attemptLost = wrongAnswers >= 2;
-        history = preferences.getStringList('million_history')
+        history =
+            preferences
+                .getStringList('million_history')
                 ?.map(int.parse)
                 .toList() ??
             [];
@@ -4066,7 +7073,9 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
   }
 
   void _prepareQuestionOrder() {
-    final unseen = questions.where((item) => !shownQuestionKeys.contains(_questionKey(item))).toList();
+    final unseen = questions
+        .where((item) => !shownQuestionKeys.contains(_questionKey(item)))
+        .toList();
     if (unseen.isEmpty) {
       shownQuestionKeys.clear();
       unseen.addAll(questions);
@@ -4093,7 +7102,8 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
   }
 
   void choose(int index) {
-    if (answered || hiddenOptions.contains(index) || revealedOptionCount < 4) return;
+    if (answered || hiddenOptions.contains(index) || revealedOptionCount < 4)
+      return;
     _cancelQuestionCycle();
     final correct = index == question.answer;
     unawaited(_playAnswerSound(correct));
@@ -4250,7 +7260,11 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
                   onPressed: () {
                     Navigator.pop(dialogContext);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('سيتم تفعيل الدفع الآمن عند ربط المتجر بالحساب')),
+                      const SnackBar(
+                        content: Text(
+                          'سيتم تفعيل الدفع الآمن عند ربط المتجر بالحساب',
+                        ),
+                      ),
                     );
                   },
                   child: const Text('شراء'),
@@ -4259,7 +7273,10 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إغلاق')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('إغلاق'),
+          ),
         ],
       ),
     );
@@ -4289,7 +7306,10 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
           'أظن أن الإجابة الأقرب هي الخيار ${String.fromCharCode(65 + question.answer)} باحتمال $confidence٪، لكنني غير متأكد تمامًا.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('فهمت')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('فهمت'),
+          ),
         ],
       ),
     );
@@ -4317,13 +7337,18 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
             4,
             (index) => ListTile(
               dense: true,
-              title: Text('${String.fromCharCode(65 + index)}: ${question.options[index]}'),
+              title: Text(
+                '${String.fromCharCode(65 + index)}: ${question.options[index]}',
+              ),
               trailing: Text('${percentages[index]}%'),
             ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إغلاق'),
+          ),
         ],
       ),
     );
@@ -4346,175 +7371,270 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
     child: SingleChildScrollView(
       child: Column(
         children: [
-      Row(
-        children: [
-          IconButton.filled(
-            tooltip: 'خروج',
-            onPressed: exitGame,
-            style: IconButton.styleFrom(
-              backgroundColor: emerald,
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(Icons.arrow_back_rounded),
+          Row(
+            children: [
+              IconButton.filled(
+                tooltip: 'خروج',
+                onPressed: exitGame,
+                style: IconButton.styleFrom(
+                  backgroundColor: emerald,
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+              const SizedBox(width: 10),
+              const Icon(
+                Icons.emoji_events_rounded,
+                color: Color(0xffd4a72c),
+                size: 30,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'طريق المليون',
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              Text(
+                'أفضل: $bestScore',
+                style: const TextStyle(color: mutedInk, fontSize: 12),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          const Icon(Icons.emoji_events_rounded, color: Color(0xffd4a72c), size: 30),
-          const SizedBox(width: 8),
-          const Text('طريق المليون', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-          const Spacer(),
-          Text('أفضل: $bestScore', style: const TextStyle(color: mutedInk, fontSize: 12)),
-        ],
-      ),
-      const SizedBox(height: 8),
-      Panel(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          children: [
-            Row(
+          const SizedBox(height: 8),
+          Panel(
+            padding: const EdgeInsets.all(10),
+            child: Column(
               children: [
-                Text('السؤال ${current + 1} من ${gameQuestions.length}', style: const TextStyle(color: mutedInk)),
-                const Spacer(),
                 Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.diamond_outlined, color: loginTeal, size: 18),
-                    const SizedBox(width: 4),
-                    Text('الجولة: $score', style: const TextStyle(color: loginTeal, fontWeight: FontWeight.bold)),
-                              const SizedBox(width: 12),
-                              IconButton.filledTonal(
-                                tooltip: 'متجر الماسات',
-                                onPressed: showDiamondShop,
-                                icon: const Icon(Icons.storefront_outlined, size: 19),
-                              ),
+                    Text(
+                      'السؤال ${current + 1} من ${gameQuestions.length}',
+                      style: const TextStyle(color: mutedInk),
+                    ),
+                    const Spacer(),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.diamond_outlined,
+                          color: loginTeal,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'الجولة: $score',
+                          style: const TextStyle(
+                            color: loginTeal,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton.filledTonal(
+                          tooltip: 'متجر الماسات',
+                          onPressed: showDiamondShop,
+                          icon: const Icon(Icons.storefront_outlined, size: 19),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.diamond_outlined,
+                        color: Color(0xffb48616),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'الهدف التالي: ${prizeForQuestion(current)} ماسة',
+                        style: const TextStyle(
+                          color: Color(0xffb48616),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: (current + 1) / gameQuestions.length,
+                    minHeight: 8,
+                    color: loginTeal,
+                    backgroundColor: const Color(0xffe2e8f0),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 6),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.diamond_outlined, color: Color(0xffb48616), size: 18),
-                  const SizedBox(width: 4),
-                  Text(
-                    'الهدف التالي: ${prizeForQuestion(current)} ماسة',
-                    style: const TextStyle(color: Color(0xffb48616), fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: (current + 1) / gameQuestions.length,
-                minHeight: 8,
-                color: loginTeal,
-                backgroundColor: const Color(0xffe2e8f0),
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 8),
-      _buildLadder(),
-      const SizedBox(height: 8),
-      Panel(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+          ),
+          const SizedBox(height: 8),
+          _buildLadder(),
+          const SizedBox(height: 8),
+          Panel(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(question.category, style: const TextStyle(color: loginTeal, fontWeight: FontWeight.bold)),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(color: const Color(0xffecfeff), borderRadius: BorderRadius.circular(20)),
-                  child: Text('المستوى: ${question.difficulty}', style: const TextStyle(color: loginTeal, fontSize: 11, fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    Text(
+                      question.category,
+                      style: const TextStyle(
+                        color: loginTeal,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xffecfeff),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'المستوى: ${question.difficulty}',
+                        style: const TextStyle(
+                          color: loginTeal,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: Text(
+                    question.text,
+                    key: ValueKey(current),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      height: 1.4,
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: Text(question.text, key: ValueKey(current), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, height: 1.4)),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 8),
-      Stack(
-        alignment: Alignment.center,
-        children: [
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 6,
-            childAspectRatio: 5.6,
-            children: List.generate(4, _buildOption),
           ),
-          IgnorePointer(
-            child: Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: !timerStarted || secondsRemaining <= 10 ? const Color(0xfffef2f2) : Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: !timerStarted || secondsRemaining <= 10 ? const Color(0xffdc2626) : loginTeal,
-                  width: 3,
-                ),
-                boxShadow: const [
-                  BoxShadow(color: Color(0x220f172a), blurRadius: 8, offset: Offset(0, 3)),
-                ],
+          const SizedBox(height: 8),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 6,
+                childAspectRatio: 5.6,
+                children: List.generate(4, _buildOption),
               ),
-              child: Center(
-                child: Text(
-                  timerStarted ? '$secondsRemaining' : '…',
-                  style: TextStyle(
-                    color: !timerStarted || secondsRemaining <= 10 ? const Color(0xffdc2626) : loginTeal,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
+              IgnorePointer(
+                child: Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: !timerStarted || secondsRemaining <= 10
+                        ? const Color(0xfffef2f2)
+                        : Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: !timerStarted || secondsRemaining <= 10
+                          ? const Color(0xffdc2626)
+                          : loginTeal,
+                      width: 3,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x220f172a),
+                        blurRadius: 8,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      timerStarted ? '$secondsRemaining' : '…',
+                      style: TextStyle(
+                        color: !timerStarted || secondsRemaining <= 10
+                            ? const Color(0xffdc2626)
+                            : loginTeal,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
               ),
+            ],
+          ),
+          if (answered) ...[
+            const SizedBox(height: 3),
+            Text(
+              selected == question.answer
+                  ? 'إجابة صحيحة'
+                  : 'إجابة خاطئة، الإجابة الصحيحة: ${String.fromCharCode(65 + question.answer)}',
+              style: TextStyle(
+                color: selected == question.answer
+                    ? const Color(0xff059669)
+                    : const Color(0xffdc2626),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
+            if (selected == question.answer &&
+                current < gameQuestions.length - 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: FilledButton.icon(
+                    onPressed: nextQuestion,
+                    icon: const Icon(Icons.arrow_forward),
+                    label: const Text('السؤال التالي'),
+                  ),
+                ),
+              ),
+          ],
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _helpButton(
+                Icons.content_cut,
+                'حذف إجابتين',
+                fiftyUsed,
+                useFifty,
+              ),
+              _helpButton(
+                Icons.phone_in_talk_outlined,
+                'صديق',
+                friendUsed,
+                useFriend,
+              ),
+              _helpButton(Icons.bar_chart_rounded, 'تصويت', pollUsed, usePoll),
+            ],
           ),
-        ],
-      ),
-      if (answered) ...[
-        const SizedBox(height: 3),
-        Text(
-          selected == question.answer ? 'إجابة صحيحة' : 'إجابة خاطئة، الإجابة الصحيحة: ${String.fromCharCode(65 + question.answer)}',
-          style: TextStyle(color: selected == question.answer ? const Color(0xff059669) : const Color(0xffdc2626), fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        if (selected == question.answer && current < gameQuestions.length - 1)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: SizedBox(width: double.infinity, height: 50, child: FilledButton.icon(onPressed: nextQuestion, icon: const Icon(Icons.arrow_forward), label: const Text('السؤال التالي'))),
-          ),
-      ],
-      const SizedBox(height: 4),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _helpButton(Icons.content_cut, 'حذف إجابتين', fiftyUsed, useFifty),
-          _helpButton(Icons.phone_in_talk_outlined, 'صديق', friendUsed, useFriend),
-          _helpButton(Icons.bar_chart_rounded, 'تصويت', pollUsed, usePoll),
-        ],
-      ),
         ],
       ),
     ),
   );
 
   Widget _buildOption(int index) {
-    if (hiddenOptions.contains(index) || index >= revealedOptionCount) return const SizedBox.shrink();
+    if (hiddenOptions.contains(index) || index >= revealedOptionCount)
+      return const SizedBox.shrink();
     final isCorrect = answered && index == question.answer;
     final isWrong = answered && index == selected && index != question.answer;
     final color = isCorrect
@@ -4526,15 +7646,77 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
       padding: const EdgeInsets.only(bottom: 4),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        decoration: BoxDecoration(color: color.withValues(alpha: isCorrect || isWrong ? .12 : 1), borderRadius: BorderRadius.circular(14), border: Border.all(color: color, width: isCorrect || isWrong ? 2 : 1)),
-        child: Material(color: Colors.transparent, child: InkWell(onTap: answered ? null : () => choose(index), borderRadius: BorderRadius.circular(14), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), child: Row(children: [CircleAvatar(radius: 10, backgroundColor: color, child: Text(String.fromCharCode(65 + index), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))), const SizedBox(width: 7), Expanded(child: Text(question.options[index], maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: ink))), if (isCorrect) const Icon(Icons.check_circle, size: 16, color: Color(0xff059669)), if (isWrong) const Icon(Icons.cancel, size: 16, color: Color(0xffdc2626))])))),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: isCorrect || isWrong ? .12 : 1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color, width: isCorrect || isWrong ? 2 : 1),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: answered ? null : () => choose(index),
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 10,
+                    backgroundColor: color,
+                    child: Text(
+                      String.fromCharCode(65 + index),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      question.options[index],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: ink,
+                      ),
+                    ),
+                  ),
+                  if (isCorrect)
+                    const Icon(
+                      Icons.check_circle,
+                      size: 16,
+                      color: Color(0xff059669),
+                    ),
+                  if (isWrong)
+                    const Icon(
+                      Icons.cancel,
+                      size: 16,
+                      color: Color(0xffdc2626),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _helpButton(IconData icon, String label, bool used, VoidCallback action) => Column(
+  Widget _helpButton(
+    IconData icon,
+    String label,
+    bool used,
+    VoidCallback action,
+  ) => Column(
     children: [
-      IconButton.filledTonal(onPressed: used || answered ? null : action, icon: Icon(icon)),
+      IconButton.filledTonal(
+        onPressed: used || answered ? null : action,
+        icon: Icon(icon),
+      ),
       Text(label, style: TextStyle(color: used ? mutedInk : ink, fontSize: 11)),
     ],
   );
@@ -4548,8 +7730,27 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
       separatorBuilder: (_, __) => const SizedBox(width: 6),
       itemBuilder: (_, index) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 12),
-        decoration: BoxDecoration(color: index == prizeIndexForQuestion(current) ? const Color(0xffd4a72c) : Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: index == prizeIndexForQuestion(current) ? const Color(0xffd4a72c) : const Color(0xffe2e8f0))),
-        child: Text('${prizeLadder[index]}', style: TextStyle(color: index == prizeIndexForQuestion(current) ? Colors.white : mutedInk, fontSize: 11, fontWeight: FontWeight.bold)),
+        decoration: BoxDecoration(
+          color: index == prizeIndexForQuestion(current)
+              ? const Color(0xffd4a72c)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: index == prizeIndexForQuestion(current)
+                ? const Color(0xffd4a72c)
+                : const Color(0xffe2e8f0),
+          ),
+        ),
+        child: Text(
+          '${prizeLadder[index]}',
+          style: TextStyle(
+            color: index == prizeIndexForQuestion(current)
+                ? Colors.white
+                : mutedInk,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     ),
   );
@@ -4560,27 +7761,69 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
       child: Panel(
         child: Column(
           children: [
-            const Icon(Icons.emoji_events_rounded, color: Color(0xffd4a72c), size: 72),
+            const Icon(
+              Icons.emoji_events_rounded,
+              color: Color(0xffd4a72c),
+              size: 72,
+            ),
             const SizedBox(height: 12),
-            const Text('انتهت الجولة', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+            const Text(
+              'انتهت الجولة',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.diamond_outlined, color: loginTeal, size: 26),
                 const SizedBox(width: 6),
-                    Text('$diamondBalance ماسة', style: const TextStyle(color: loginTeal, fontSize: 24, fontWeight: FontWeight.bold)),
+                Text(
+                  '$diamondBalance ماسة',
+                  style: const TextStyle(
+                    color: loginTeal,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 6),
-            Text('أفضل نتيجة: $bestScore', style: const TextStyle(color: mutedInk)),
+            Text(
+              'أفضل نتيجة: $bestScore',
+              style: const TextStyle(color: mutedInk),
+            ),
             const SizedBox(height: 22),
-            SizedBox(width: double.infinity, height: 50, child: FilledButton.icon(onPressed: restart, icon: const Icon(Icons.refresh), label: const Text('إعادة اللعب'))),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton.icon(
+                onPressed: restart,
+                icon: const Icon(Icons.refresh),
+                label: const Text('إعادة اللعب'),
+              ),
+            ),
             if (history.isNotEmpty) ...[
               const SizedBox(height: 24),
-              const Align(alignment: AlignmentDirectional.centerStart, child: Text('سجل النتائج', style: TextStyle(fontWeight: FontWeight.bold))),
+              const Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  'سجل النتائج',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
               const SizedBox(height: 8),
-              ...history.take(5).map((value) => ListTile(dense: true, leading: const Icon(Icons.diamond_outlined, color: loginTeal), title: Text('$value ماسة'))),
+              ...history
+                  .take(5)
+                  .map(
+                    (value) => ListTile(
+                      dense: true,
+                      leading: const Icon(
+                        Icons.diamond_outlined,
+                        color: loginTeal,
+                      ),
+                      title: Text('$value ماسة'),
+                    ),
+                  ),
             ],
           ],
         ),
@@ -4594,12 +7837,20 @@ class _MillionRoadPageState extends State<MillionRoadPage> {
       child: Panel(
         child: Column(
           children: [
-            const Icon(Icons.lock_clock_rounded, color: Color(0xffd4a72c), size: 72),
+            const Icon(
+              Icons.lock_clock_rounded,
+              color: Color(0xffd4a72c),
+              size: 72,
+            ),
             const SizedBox(height: 18),
             const Text(
               'انتهت محاولتك في طريق المليون. لقد استنفدت فرصتي الإجابة المسموح بهما خلال هذه الجولة. نتمنى لك حظاً أفضل في المحاولة القادمة.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, height: 1.6),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                height: 1.6,
+              ),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -4924,14 +8175,12 @@ class _HeartTestTab extends StatelessWidget {
                 Icon(
                   Icons.circle,
                   size: 11,
-                    color: connected ? emerald : const Color(0xffc5cec8),
+                  color: connected ? emerald : const Color(0xffc5cec8),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   connected ? 'متصل' : 'غير متصل',
-                  style: TextStyle(
-                    color: connected ? emerald : mutedInk,
-                  ),
+                  style: TextStyle(color: connected ? emerald : mutedInk),
                 ),
               ],
             ),
@@ -5318,10 +8567,11 @@ class _ModernLibraryPageState extends State<ModernLibraryPage> {
   }
 
   List<LibraryBook> get filteredBooks => books.where((book) {
-    final matchesCategory = selectedCategory == 'الكل' ||
-        book.category == selectedCategory;
+    final matchesCategory =
+        selectedCategory == 'الكل' || book.category == selectedCategory;
     final normalizedQuery = query.trim();
-    final matchesQuery = normalizedQuery.isEmpty ||
+    final matchesQuery =
+        normalizedQuery.isEmpty ||
         book.title.contains(normalizedQuery) ||
         book.author.contains(normalizedQuery) ||
         book.category.contains(normalizedQuery);
@@ -5350,7 +8600,8 @@ class _ModernLibraryPageState extends State<ModernLibraryPage> {
                             borrowed: borrowedBooks.contains(
                               filteredBooks[index].title,
                             ),
-                            onOpen: () => _showBookDetails(filteredBooks[index]),
+                            onOpen: () =>
+                                _showBookDetails(filteredBooks[index]),
                           ),
                           childCount: filteredBooks.length,
                         ),
@@ -5378,17 +8629,29 @@ class _ModernLibraryPageState extends State<ModernLibraryPage> {
           decoration: BoxDecoration(
             color: const Color(0xff60a5fa).withValues(alpha: .16),
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xff60a5fa).withValues(alpha: .5)),
+            border: Border.all(
+              color: const Color(0xff60a5fa).withValues(alpha: .5),
+            ),
           ),
-          child: const Icon(Icons.local_library, color: Color(0xff93c5fd), size: 34),
+          child: const Icon(
+            Icons.local_library,
+            color: Color(0xff93c5fd),
+            size: 34,
+          ),
         ),
         const SizedBox(width: 14),
         const Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('المكتبة الحديثة', style: TextStyle(fontSize: 29, fontWeight: FontWeight.bold)),
-              Text('معرفة مرتبة في مركز تقني واحد', style: TextStyle(color: mutedInk)),
+              Text(
+                'المكتبة الحديثة',
+                style: TextStyle(fontSize: 29, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'معرفة مرتبة في مركز تقني واحد',
+                style: TextStyle(color: mutedInk),
+              ),
             ],
           ),
         ),
@@ -5410,7 +8673,11 @@ class _ModernLibraryPageState extends State<ModernLibraryPage> {
         const SizedBox(width: 10),
         const _LibraryStat(value: '128', label: 'قارئ نشط', color: violet),
         const SizedBox(width: 10),
-        _LibraryStat(value: '${borrowedBooks.length}', label: 'إعاراتي', color: gold),
+        _LibraryStat(
+          value: '${borrowedBooks.length}',
+          label: 'إعاراتي',
+          color: gold,
+        ),
       ],
     ),
   );
@@ -5448,20 +8715,32 @@ class _ModernLibraryPageState extends State<ModernLibraryPage> {
           height: 42,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            children: ['الكل', 'أدوات', 'علوم', 'تقنية', 'صحة', 'تطوير', 'تاريخ', 'أدب']
-                .map(
-                  (category) => Padding(
-                    padding: const EdgeInsetsDirectional.only(end: 8),
-                    child: ChoiceChip(
-                      label: Text(category),
-                      selected: selectedCategory == category,
-                      onSelected: (_) => setState(() => selectedCategory = category),
-                      selectedColor: const Color(0xff60a5fa).withValues(alpha: .35),
-                      side: const BorderSide(color: Color(0xffd8e0db)),
-                    ),
-                  ),
-                )
-                .toList(),
+            children:
+                [
+                      'الكل',
+                      'أدوات',
+                      'علوم',
+                      'تقنية',
+                      'صحة',
+                      'تطوير',
+                      'تاريخ',
+                      'أدب',
+                    ]
+                    .map(
+                      (category) => Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 8),
+                        child: ChoiceChip(
+                          label: Text(category),
+                          selected: selectedCategory == category,
+                          onSelected: (_) =>
+                              setState(() => selectedCategory = category),
+                          selectedColor: const Color(0xff60a5fa)
+                              .withValues(alpha: .35),
+                          side: const BorderSide(color: Color(0xffd8e0db)),
+                        ),
+                      ),
+                    )
+                    .toList(),
           ),
         ),
       ],
@@ -5495,15 +8774,35 @@ class _ModernLibraryPageState extends State<ModernLibraryPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(children: [
-                CircleAvatar(backgroundColor: book.color, radius: 27, child: Icon(book.icon)),
-                const SizedBox(width: 14),
-                Expanded(child: Text(book.title, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.bold))),
-              ]),
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: book.color,
+                    radius: 27,
+                    child: Icon(book.icon),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      book.title,
+                      style: const TextStyle(
+                        fontSize: 23,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 18),
-              Text('تأليف ${book.author}  •  ${book.category}', style: const TextStyle(color: mutedInk)),
+              Text(
+                'تأليف ${book.author}  •  ${book.category}',
+                style: const TextStyle(color: mutedInk),
+              ),
               const SizedBox(height: 12),
-              Text(book.description, style: const TextStyle(fontSize: 16, height: 1.5)),
+              Text(
+                book.description,
+                style: const TextStyle(fontSize: 16, height: 1.5),
+              ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -5514,11 +8813,23 @@ class _ModernLibraryPageState extends State<ModernLibraryPage> {
                           setState(() => borrowedBooks.add(book.title));
                           Navigator.pop(sheetContext);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('تمت إعارة «${book.title}» إلى حسابك')),
+                            SnackBar(
+                              content: Text(
+                                'تمت إعارة «${book.title}» إلى حسابك',
+                              ),
+                            ),
                           );
                         },
-                  icon: Icon(alreadyBorrowed ? Icons.check : Icons.bookmark_add),
-                  label: Text(alreadyBorrowed ? 'الكتاب في إعاراتي' : book.available ? 'استعارة الكتاب' : 'غير متاح حاليًا'),
+                  icon: Icon(
+                    alreadyBorrowed ? Icons.check : Icons.bookmark_add,
+                  ),
+                  label: Text(
+                    alreadyBorrowed
+                        ? 'الكتاب في إعاراتي'
+                        : book.available
+                        ? 'استعارة الكتاب'
+                        : 'غير متاح حاليًا',
+                  ),
                 ),
               ),
             ],
@@ -5533,13 +8844,24 @@ class _LibraryStat extends StatelessWidget {
   final String value;
   final String label;
   final Color color;
-  const _LibraryStat({required this.value, required this.label, required this.color});
+  const _LibraryStat({
+    required this.value,
+    required this.label,
+    required this.color,
+  });
   @override
   Widget build(BuildContext context) => Expanded(
     child: Panel(
       child: Column(
         children: [
-          Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 3),
           Text(label, style: const TextStyle(color: mutedInk, fontSize: 11)),
         ],
@@ -5552,7 +8874,11 @@ class _BookCard extends StatelessWidget {
   final LibraryBook book;
   final bool borrowed;
   final VoidCallback onOpen;
-  const _BookCard({required this.book, required this.borrowed, required this.onOpen});
+  const _BookCard({
+    required this.book,
+    required this.borrowed,
+    required this.onOpen,
+  });
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: onOpen,
@@ -5577,7 +8903,10 @@ class _BookCard extends StatelessWidget {
                     top: 8,
                     end: 8,
                     child: Chip(
-                      label: Text(book.category, style: const TextStyle(fontSize: 11)),
+                      label: Text(
+                        book.category,
+                        style: const TextStyle(fontSize: 11),
+                      ),
                       backgroundColor: Colors.black26,
                       side: BorderSide.none,
                     ),
@@ -5587,16 +8916,48 @@ class _BookCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          Text(
+            book.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 4),
-          Text(book.author, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: mutedInk, fontSize: 12)),
+          Text(
+            book.author,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: mutedInk, fontSize: 12),
+          ),
           const SizedBox(height: 10),
-          Row(children: [
-            Icon(book.available ? Icons.check_circle : Icons.schedule, size: 15, color: book.available ? Colors.greenAccent : gold),
-            const SizedBox(width: 5),
-            Expanded(child: Text(borrowed ? 'في إعاراتي' : book.available ? 'متاح للاستعارة' : 'قائمة انتظار', style: TextStyle(color: borrowed ? cyan : book.available ? Colors.greenAccent : gold, fontSize: 12))),
-            const Icon(Icons.arrow_forward_ios, size: 14, color: mutedInk),
-          ]),
+          Row(
+            children: [
+              Icon(
+                book.available ? Icons.check_circle : Icons.schedule,
+                size: 15,
+                color: book.available ? Colors.greenAccent : gold,
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  borrowed
+                      ? 'في إعاراتي'
+                      : book.available
+                      ? 'متاح للاستعارة'
+                      : 'قائمة انتظار',
+                  style: TextStyle(
+                    color: borrowed
+                        ? cyan
+                        : book.available
+                        ? Colors.greenAccent
+                        : gold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 14, color: mutedInk),
+            ],
+          ),
         ],
       ),
     ),
@@ -5867,12 +9228,42 @@ Future<VideoItem> publishVideo({
   required bool vip,
 }) async {
   final token = await TheodoreApi._token();
-  final presign = await http.post(Uri.parse('$apiBaseUrl/admin/videos/presign'), headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: jsonEncode({'filename': file.name, 'content_type': 'video/mp4'})).timeout(const Duration(seconds: 8));
+  final presign = await http
+      .post(
+        Uri.parse('$apiBaseUrl/admin/videos/presign'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'filename': file.name, 'content_type': 'video/mp4'}),
+      )
+      .timeout(const Duration(seconds: 8));
   if (presign.statusCode != 200) throw Exception('تعذر تجهيز رفع الفيديو');
   final presignData = jsonDecode(presign.body) as Map<String, dynamic>;
-  final upload = await http.put(Uri.parse(presignData['upload_url'] as String), headers: {'Content-Type': 'video/mp4'}, body: await file.readAsBytes()).timeout(const Duration(minutes: 5));
-  if (upload.statusCode < 200 || upload.statusCode >= 300) throw Exception('تعذر رفع الفيديو إلى R2');
-  final publish = await http.post(Uri.parse('$apiBaseUrl/admin/videos/publish'), headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}, body: jsonEncode({'language': language, 'title': title, 'object_key': presignData['key'], 'access': vip ? 'vip' : 'public'})).timeout(const Duration(seconds: 8));
+  final upload = await http
+      .put(
+        Uri.parse(presignData['upload_url'] as String),
+        headers: {'Content-Type': 'video/mp4'},
+        body: await file.readAsBytes(),
+      )
+      .timeout(const Duration(minutes: 5));
+  if (upload.statusCode < 200 || upload.statusCode >= 300)
+    throw Exception('تعذر رفع الفيديو إلى R2');
+  final publish = await http
+      .post(
+        Uri.parse('$apiBaseUrl/admin/videos/publish'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'language': language,
+          'title': title,
+          'object_key': presignData['key'],
+          'access': vip ? 'vip' : 'public',
+        }),
+      )
+      .timeout(const Duration(seconds: 8));
   if (publish.statusCode != 200) throw Exception('تعذر نشر معلومات الفيديو');
   final data = jsonDecode(publish.body) as Map<String, dynamic>;
   return VideoItem.fromJson(data);
@@ -6064,7 +9455,10 @@ class VideoCard extends StatelessWidget {
       try {
         await TheodoreApi.adminDelete('/admin/videos/${video.id}');
       } catch (_) {
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر حذف الفيديو من السيرفر')));
+        if (context.mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('تعذر حذف الفيديو من السيرفر')),
+          );
         return;
       }
     }
@@ -6474,10 +9868,30 @@ class AdminPage extends StatelessWidget {
             style: TextStyle(color: mutedInk),
           ),
           const SizedBox(height: 18),
-          _adminButton(context, 'لوحة الإحصائيات', Icons.dashboard_outlined, const AdminDashboardPage()),
-          _adminButton(context, 'إدارة المستخدمين والرتب', Icons.manage_accounts_outlined, const AdminUsersPage()),
-          _adminButton(context, 'ظهور الآيتمات والصلاحيات', Icons.visibility_outlined, const AdminItemsPage()),
-          _adminButton(context, 'إدارة مقاطع الفيديو', Icons.video_library, const AdminVideoSpacesPage()),
+          _adminButton(
+            context,
+            'لوحة الإحصائيات',
+            Icons.dashboard_outlined,
+            const AdminDashboardPage(),
+          ),
+          _adminButton(
+            context,
+            'إدارة المستخدمين والرتب',
+            Icons.manage_accounts_outlined,
+            const AdminUsersPage(),
+          ),
+          _adminButton(
+            context,
+            'ظهور الآيتمات والصلاحيات',
+            Icons.visibility_outlined,
+            const AdminItemsPage(),
+          ),
+          _adminButton(
+            context,
+            'إدارة مقاطع الفيديو',
+            Icons.video_library,
+            const AdminVideoSpacesPage(),
+          ),
           const SizedBox(height: 20),
           ValueListenableBuilder<List<VideoItem>>(
             valueListenable: videoCatalog,
@@ -6491,25 +9905,65 @@ class AdminPage extends StatelessWidget {
     ),
   );
 
-  Widget _adminButton(BuildContext context, String title, IconData icon, Widget page) => Padding(
+  Widget _adminButton(
+    BuildContext context,
+    String title,
+    IconData icon,
+    Widget page,
+  ) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => page)), icon: Icon(icon), label: Text(title))),
+    child: SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: () =>
+            Navigator.push(context, MaterialPageRoute(builder: (_) => page)),
+        icon: Icon(icon),
+        label: Text(title),
+      ),
+    ),
   );
 }
 
 class AdminDashboardPage extends StatelessWidget {
   const AdminDashboardPage({super.key});
   @override
-  Widget build(BuildContext context) => _AdminApiPage(title: 'لوحة الإحصائيات', path: '/admin/dashboard', builder: (data) => GridView.count(shrinkWrap: true, crossAxisCount: 2, children: [
-    _AdminStat('إجمالي الحسابات', '${data['accounts']}'), _AdminStat('المستخدمون', '${data['users']}'), _AdminStat('المشرفون', '${data['supervisors']}'), _AdminStat('المديرون', '${data['admins']}'),
-  ]));
+  Widget build(BuildContext context) => _AdminApiPage(
+    title: 'لوحة الإحصائيات',
+    path: '/admin/dashboard',
+    builder: (data) => GridView.count(
+      shrinkWrap: true,
+      crossAxisCount: 2,
+      children: [
+        _AdminStat('إجمالي الحسابات', '${data['accounts']}'),
+        _AdminStat('المستخدمون', '${data['users']}'),
+        _AdminStat('المشرفون', '${data['supervisors']}'),
+        _AdminStat('المديرون', '${data['admins']}'),
+      ],
+    ),
+  );
 }
 
 class _AdminStat extends StatelessWidget {
-  final String title; final String value;
+  final String title;
+  final String value;
   const _AdminStat(this.title, this.value);
   @override
-  Widget build(BuildContext context) => Card(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: burgundy)), Text(title)]));
+  Widget build(BuildContext context) => Card(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: burgundy,
+          ),
+        ),
+        Text(title),
+      ],
+    ),
+  );
 }
 
 class AdminUsersPage extends StatefulWidget {
@@ -6517,15 +9971,52 @@ class AdminUsersPage extends StatefulWidget {
   @override
   State<AdminUsersPage> createState() => _AdminUsersPageState();
 }
+
 class _AdminUsersPageState extends State<AdminUsersPage> {
   late Future<dynamic> users;
   @override
-  void initState() { super.initState(); users = TheodoreApi.adminGet('/admin/users'); }
+  void initState() {
+    super.initState();
+    users = TheodoreApi.adminGet('/admin/users');
+  }
+
   @override
-  Widget build(BuildContext context) => _AdminApiPage(title: 'إدارة المستخدمين', future: users, builder: (data) => Column(children: [for (final user in data) ListTile(
-    title: Text(user['username']), subtitle: Text(user['is_original'] == true ? 'superadmin ثابت' : 'الرتبة: ${user['role']}'),
-    trailing: user['is_original'] == true ? const Icon(Icons.lock, color: mutedInk) : DropdownButton<String>(value: user['role'] == 'admin' ? 'admin' : 'user', items: const [DropdownMenuItem(value: 'user', child: Text('user')), DropdownMenuItem(value: 'admin', child: Text('admin'))], onChanged: (role) async { if (role == null) return; await TheodoreApi.adminPut('/admin/users/${user['id']}/role', {'role': role}); setState(() { users = TheodoreApi.adminGet('/admin/users'); }); }),
-  )]));
+  Widget build(BuildContext context) => _AdminApiPage(
+    title: 'إدارة المستخدمين',
+    future: users,
+    builder: (data) => Column(
+      children: [
+        for (final user in data)
+          ListTile(
+            title: Text(user['username']),
+            subtitle: Text(
+              user['is_original'] == true
+                  ? 'superadmin ثابت'
+                  : 'الرتبة: ${user['role']}',
+            ),
+            trailing: user['is_original'] == true
+                ? const Icon(Icons.lock, color: mutedInk)
+                : DropdownButton<String>(
+                    value: user['role'] == 'admin' ? 'admin' : 'user',
+                    items: const [
+                      DropdownMenuItem(value: 'user', child: Text('user')),
+                      DropdownMenuItem(value: 'admin', child: Text('admin')),
+                    ],
+                    onChanged: (role) async {
+                      if (role == null) return;
+                      await TheodoreApi.adminPut(
+                        '/admin/users/${user['id']}/role',
+                        {'role': role},
+                      );
+                      setState(() {
+                        users = TheodoreApi.adminGet('/admin/users');
+                      });
+                    },
+                  ),
+          ),
+      ],
+    ),
+  );
 }
 
 class AdminItemsPage extends StatefulWidget {
@@ -6533,19 +10024,76 @@ class AdminItemsPage extends StatefulWidget {
   @override
   State<AdminItemsPage> createState() => _AdminItemsPageState();
 }
+
 class _AdminItemsPageState extends State<AdminItemsPage> {
   late Future<dynamic> items;
   @override
-  void initState() { super.initState(); items = TheodoreApi.adminGet('/admin/items'); }
+  void initState() {
+    super.initState();
+    items = TheodoreApi.adminGet('/admin/items');
+  }
+
   @override
-  Widget build(BuildContext context) => _AdminApiPage(title: 'ظهور الآيتمات', future: items, builder: (data) => Column(children: [for (final item in data) ExpansionTile(title: Text(item['title']), children: [for (final role in const ['user', 'admin', 'superadmin']) SwitchListTile(title: Text(role), value: (item['roles'] as Map<String, dynamic>)[role] == true, onChanged: role == 'superadmin' ? null : (enabled) async { await TheodoreApi.adminPut('/admin/items/${item['key']}', {'role': role, 'enabled': enabled}); setState(() { items = TheodoreApi.adminGet('/admin/items'); }); })])]));
+  Widget build(BuildContext context) => _AdminApiPage(
+    title: 'ظهور الآيتمات',
+    future: items,
+    builder: (data) => Column(
+      children: [
+        for (final item in data)
+          ExpansionTile(
+            title: Text(item['title']),
+            children: [
+              for (final role in const ['user', 'admin', 'superadmin'])
+                SwitchListTile(
+                  title: Text(role),
+                  value: (item['roles'] as Map<String, dynamic>)[role] == true,
+                  onChanged: role == 'superadmin'
+                      ? null
+                      : (enabled) async {
+                          await TheodoreApi.adminPut(
+                            '/admin/items/${item['key']}',
+                            {'role': role, 'enabled': enabled},
+                          );
+                          setState(() {
+                            items = TheodoreApi.adminGet('/admin/items');
+                          });
+                        },
+                ),
+            ],
+          ),
+      ],
+    ),
+  );
 }
 
 class _AdminApiPage extends StatelessWidget {
-  final String title; final String? path; final Future<dynamic>? future; final Widget Function(dynamic) builder;
-  const _AdminApiPage({required this.title, this.path, this.future, required this.builder});
+  final String title;
+  final String? path;
+  final Future<dynamic>? future;
+  final Widget Function(dynamic) builder;
+  const _AdminApiPage({
+    required this.title,
+    this.path,
+    this.future,
+    required this.builder,
+  });
   @override
-  Widget build(BuildContext context) => _LearningScaffold(title: title, subtitle: 'إدارة مستقلة محفوظة على السيرفر', child: Panel(child: FutureBuilder<dynamic>(future: future ?? TheodoreApi.adminGet(path!), builder: (context, snapshot) { if (snapshot.hasError) return const Text('تعذر تحميل البيانات من السيرفر'); if (!snapshot.hasData) return const Center(child: CircularProgressIndicator()); return builder(snapshot.data); })));
+  Widget build(BuildContext context) => _LearningScaffold(
+    title: title,
+    subtitle: 'إدارة مستقلة محفوظة على السيرفر',
+    child: Panel(
+      child: FutureBuilder<dynamic>(
+        future: future ?? TheodoreApi.adminGet(path!),
+        builder: (context, snapshot) {
+          if (snapshot.hasError)
+            return const Text('تعذر تحميل البيانات من السيرفر');
+          if (!snapshot.hasData)
+            return const Center(child: CircularProgressIndicator());
+          return builder(snapshot.data);
+        },
+      ),
+    ),
+  );
 }
 
 class AdminVideoSpacesPage extends StatelessWidget {
@@ -6824,7 +10372,11 @@ class _AddVideoDialogState extends State<AddVideoDialog> {
                   if (context.mounted) Navigator.pop(context);
                 } catch (_) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر رفع الفيديو ونشره على السيرفر')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('تعذر رفع الفيديو ونشره على السيرفر'),
+                      ),
+                    );
                   }
                 } finally {
                   if (mounted) setState(() => publishing = false);

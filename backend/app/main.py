@@ -7,7 +7,7 @@ import os
 import re
 from uuid import uuid4
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -185,6 +185,7 @@ class CommunityMembership(Base):
     conversation_id: Mapped[int] = mapped_column(ForeignKey("community_conversations.id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True)
     last_read_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hidden_after_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 class CommunityMessage(Base):
     __tablename__ = "community_messages"
@@ -556,10 +557,12 @@ def community_message_data(messages: list[CommunityMessage], viewer_id: int, ses
         if message.sender_id in users_by_id
     ]
 
-def select_community_messages(session: Session, conversation_id: int | None, before_id: int | None, after_id: int, limit: int) -> list[CommunityMessage]:
+def select_community_messages(session: Session, conversation_id: int | None, before_id: int | None, after_id: int, limit: int, minimum_id: int = 0) -> list[CommunityMessage]:
     statement = select(CommunityMessage).where(CommunityMessage.conversation_id == conversation_id)
     if conversation_id is None:
         statement = statement.where(CommunityMessage.expires_at > datetime.now(timezone.utc))
+    if minimum_id > 0:
+        statement = statement.where(CommunityMessage.id > minimum_id)
     if before_id is not None:
         statement = statement.where(CommunityMessage.id < before_id).order_by(CommunityMessage.id.desc())
     elif after_id > 0:
@@ -583,13 +586,21 @@ def require_conversation_member(conversation_id: int, user: User, session: Sessi
         raise HTTPException(status_code=404, detail="المحادثة غير موجودة")
     return conversation, membership
 
-def require_reply_target(reply_to_id: int | None, conversation_id: int | None, session: Session) -> None:
+def require_reply_target(
+    reply_to_id: int | None,
+    conversation_id: int | None,
+    session: Session,
+    minimum_id: int = 0,
+) -> None:
     if reply_to_id is None:
         return
-    target = session.scalar(select(CommunityMessage).where(
+    statement = select(CommunityMessage).where(
         CommunityMessage.id == reply_to_id,
         CommunityMessage.conversation_id == conversation_id,
-    ))
+    )
+    if minimum_id > 0:
+        statement = statement.where(CommunityMessage.id > minimum_id)
+    target = session.scalar(statement)
     if not target:
         raise HTTPException(status_code=404, detail="رسالة الرد غير موجودة في هذه المحادثة")
 
@@ -779,14 +790,26 @@ def list_community_conversations(user: Annotated[User, Depends(current_user)], s
         other_user = session.get(User, other_id)
         if not other_user or not other_user.active or not can_access(other_user, "community", None, session):
             continue
-        latest = session.scalar(select(CommunityMessage).where(
+        latest_statement = select(CommunityMessage).where(
             CommunityMessage.conversation_id == conversation.id
-        ).order_by(CommunityMessage.id.desc()).limit(1))
-        unread_count = session.scalar(select(func.count(CommunityMessage.id)).where(
-            CommunityMessage.conversation_id == conversation.id,
-            CommunityMessage.sender_id != user.id,
-            CommunityMessage.id > (membership.last_read_message_id or 0),
-        )) or 0
+        )
+        if membership.hidden_after_message_id is not None:
+            latest_statement = latest_statement.where(
+                CommunityMessage.id > membership.hidden_after_message_id
+            )
+        latest = session.scalar(latest_statement.order_by(CommunityMessage.id.desc()).limit(1))
+        if membership.hidden_after_message_id is not None and latest is None:
+            continue
+        unread_count = session.scalar(
+            select(func.count(CommunityMessage.id)).where(
+                CommunityMessage.conversation_id == conversation.id,
+                CommunityMessage.sender_id != user.id,
+                CommunityMessage.id > max(
+                    membership.last_read_message_id or 0,
+                    membership.hidden_after_message_id or 0,
+                ),
+            )
+        ) or 0
         result.append({
             "id": conversation.id,
             "user": community_user_data(other_user, session),
@@ -833,20 +856,62 @@ def create_community_conversation(data: CommunityConversationIn, user: Annotated
 def private_community_messages(conversation_id: int, user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)], before_id: int | None = None, after_id: int = 0, limit: int = 50):
     require_community_access(user, session)
     _, membership = require_conversation_member(conversation_id, user, session)
-    messages = select_community_messages(session, conversation_id, before_id, after_id, limit)
+    messages = select_community_messages(
+        session,
+        conversation_id,
+        before_id,
+        after_id,
+        limit,
+        minimum_id=membership.hidden_after_message_id or 0,
+    )
     if messages:
         membership.last_read_message_id = max(membership.last_read_message_id or 0, messages[-1].id)
         session.commit()
     return community_message_data(messages, user.id, session)
 
+@app.delete("/community/conversations/{conversation_id}")
+def delete_community_conversation(
+    conversation_id: int,
+    user: Annotated[User, Depends(current_user)],
+    session: Annotated[Session, Depends(db)],
+    scope: Literal["me", "everyone"],
+):
+    require_community_access(user, session)
+    conversation, membership = require_conversation_member(conversation_id, user, session)
+    if scope == "everyone":
+        session.execute(delete(CommunityMessage).where(
+            CommunityMessage.conversation_id == conversation_id
+        ))
+        session.execute(delete(CommunityMembership).where(
+            CommunityMembership.conversation_id == conversation_id
+        ))
+        session.delete(conversation)
+        session.commit()
+        return {"deleted_for": "everyone"}
+
+    latest_message_id = session.scalar(
+        select(CommunityMessage.id)
+        .where(CommunityMessage.conversation_id == conversation_id)
+        .order_by(CommunityMessage.id.desc())
+        .limit(1)
+    )
+    membership.hidden_after_message_id = latest_message_id or 0
+    session.commit()
+    return {"deleted_for": "me"}
+
 @app.post("/community/conversations/{conversation_id}/messages")
 def send_private_community_message(conversation_id: int, data: CommunityMessageIn, user: Annotated[User, Depends(current_user)], session: Annotated[Session, Depends(db)]):
     require_community_access(user, session)
-    conversation, _ = require_conversation_member(conversation_id, user, session)
+    conversation, membership = require_conversation_member(conversation_id, user, session)
     body = data.body.strip()
     if not body or len(body) > 2000:
         raise HTTPException(status_code=422, detail="يجب أن تحتوي الرسالة على 1 إلى 2000 حرف")
-    require_reply_target(data.reply_to_id, conversation_id, session)
+    require_reply_target(
+        data.reply_to_id,
+        conversation_id,
+        session,
+        minimum_id=membership.hidden_after_message_id or 0,
+    )
     message = CommunityMessage(
         sender_id=user.id,
         conversation_id=conversation_id,

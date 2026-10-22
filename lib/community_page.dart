@@ -8,8 +8,18 @@ typedef CommunityWrite = Future<dynamic> Function(
   String path,
   Map<String, dynamic> body,
 );
-typedef CommunityAvatarUpload = Future<dynamic> Function(String path, XFile image);
+typedef CommunityDelete = Future<void> Function(String path);
+typedef CommunityAvatarUpload = Future<dynamic> Function(
+  String path,
+  XFile image,
+);
 typedef CommunityImageHeaders = Future<Map<String, String>> Function();
+
+class CommunityRequestException implements Exception {
+  final int statusCode;
+
+  const CommunityRequestException(this.statusCode);
+}
 
 enum _CommunitySection { publicChat, inbox, members }
 
@@ -17,6 +27,7 @@ class CommunityPage extends StatefulWidget {
   final CommunityGet onGet;
   final CommunityWrite onPost;
   final CommunityWrite onPut;
+  final CommunityDelete onDelete;
   final CommunityAvatarUpload? onAvatarUpload;
   final CommunityImageHeaders? onImageHeaders;
   final String apiBaseUrl;
@@ -25,6 +36,7 @@ class CommunityPage extends StatefulWidget {
     required this.onGet,
     required this.onPost,
     required this.onPut,
+    required this.onDelete,
     this.onAvatarUpload,
     this.onImageHeaders,
     this.apiBaseUrl = '',
@@ -97,7 +109,8 @@ class _CommunityPageState extends State<CommunityPage> {
 
   String? _avatarUrl(Map<String, dynamic> user) {
     final path = user['avatar_url'];
-    if (path is! String || path.isEmpty || widget.apiBaseUrl.isEmpty) return null;
+    if (path is! String || path.isEmpty || widget.apiBaseUrl.isEmpty)
+      return null;
     return '${widget.apiBaseUrl}$path';
   }
 
@@ -144,14 +157,10 @@ class _CommunityPageState extends State<CommunityPage> {
     if (!mounted || _loading || _polling) return;
     _polling = true;
     try {
-      await _refreshMessages();
       final conversations = await widget.onGet('/community/conversations');
-      if (mounted) {
-        setState(() {
-          _conversations = _maps(conversations);
-          _connected = true;
-        });
-      }
+      if (mounted) _setConversations(conversations);
+      await _refreshMessages();
+      if (mounted) setState(() => _connected = true);
     } catch (_) {
       if (mounted && _connected) setState(() => _connected = false);
     } finally {
@@ -175,7 +184,13 @@ class _CommunityPageState extends State<CommunityPage> {
     if (_section == _CommunitySection.inbox && _conversationId == null) return;
     if (_messages.isNotEmpty && !initial) {
       final lastId = _messages.last['id'] as int;
-      final incoming = _maps(await widget.onGet(_messagePath(afterId: lastId)));
+      List<Map<String, dynamic>> incoming;
+      try {
+        incoming = _maps(await widget.onGet(_messagePath(afterId: lastId)));
+      } catch (error) {
+        if (_handleMissingConversation(error)) return;
+        rethrow;
+      }
       if (!mounted || incoming.isEmpty) return;
       final atLatest = !_scroll.hasClients || _scroll.position.pixels < 90;
       setState(() {
@@ -187,13 +202,37 @@ class _CommunityPageState extends State<CommunityPage> {
       if (atLatest) _scrollToLatest();
       return;
     }
-    final latest = await widget.onGet(_messagePath());
+    dynamic latest;
+    try {
+      latest = await widget.onGet(_messagePath());
+    } catch (error) {
+      if (_handleMissingConversation(error)) return;
+      rethrow;
+    }
     if (!mounted) return;
     setState(() {
       _messages = _maps(latest);
       _newMessages = 0;
     });
     _scrollToLatest();
+  }
+
+  bool _handleMissingConversation(Object error) {
+    if (error is! CommunityRequestException ||
+        error.statusCode != 404 ||
+        _section != _CommunitySection.inbox ||
+        _conversationId == null) {
+      return false;
+    }
+    if (mounted) {
+      setState(() {
+        _conversation = null;
+        _messages = [];
+        _replyTo = null;
+        _mobileChatOpen = false;
+      });
+    }
+    return true;
   }
 
   void _scrollToLatest() {
@@ -265,8 +304,64 @@ class _CommunityPageState extends State<CommunityPage> {
   Future<void> _refreshConversations() async {
     try {
       final result = await widget.onGet('/community/conversations');
-      if (mounted) setState(() => _conversations = _maps(result));
+      if (mounted) _setConversations(result);
     } catch (_) {}
+  }
+
+  void _setConversations(dynamic result) =>
+      setState(() => _conversations = _maps(result));
+
+  Future<void> _deleteConversation(Map<String, dynamic> item) async {
+    final person = _map(item['user']);
+    final scope = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف المحادثة'),
+        content: Text(
+          'هل تريد حذف محادثة ${person['display_name'] ?? 'العضو'}؟ '
+          'الحذف من حسابك يخفي السجل السابق عنك ويبقيه للطرف الآخر. '
+          'يمكن أن تظهر المحادثة مجددًا عند وصول رسالة جديدة دون السجل السابق. '
+          'الحذف للجميع يزيل المحادثة ورسائلها نهائيًا للطرفين.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 'me'),
+            child: const Text('حذف من حسابي'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, 'everyone'),
+            child: const Text('حذف للجميع'),
+          ),
+        ],
+      ),
+    );
+    if (scope == null) return;
+    try {
+      await widget.onDelete(
+        '/community/conversations/${item['id']}?scope=$scope',
+      );
+      if (!mounted) return;
+      if (_conversationId == item['id']) {
+        setState(() {
+          _conversation = null;
+          _messages = [];
+          _replyTo = null;
+          _mobileChatOpen = false;
+        });
+      }
+      await _refreshConversations();
+      _notice(
+        scope == 'everyone'
+            ? 'تم حذف المحادثة ورسائلها للجميع'
+            : 'تم حذف المحادثة من حسابك',
+      );
+    } catch (_) {
+      if (mounted) _notice('تعذر حذف المحادثة');
+    }
   }
 
   void _searchUsers(String query) {
@@ -355,12 +450,10 @@ class _CommunityPageState extends State<CommunityPage> {
         _notice('يجب ألا يتجاوز حجم الصورة 2 ميغابايت');
         return;
       }
-      final profile = _map(
-        await upload('/community/profile/avatar', image),
-      );
+      final profile = _map(await upload('/community/profile/avatar', image));
       if (!mounted) return;
       setState(() => _profile = profile);
-      unawaited(_loadUsers(_searchQuery));
+      _searchUsers(_searchQuery);
       unawaited(_refreshConversations());
       unawaited(_refreshMessages(initial: true));
       _notice('تم تحديث الصورة الشخصية');
@@ -779,9 +872,22 @@ class _CommunityPageState extends State<CommunityPage> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: unread > 0
-            ? _Badge(count: unread)
-            : const Icon(Icons.chevron_left_rounded, color: _muted),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (unread > 0) _Badge(count: unread),
+            PopupMenuButton<String>(
+              key: ValueKey('conversation-menu-${item['id']}'),
+              tooltip: 'خيارات المحادثة',
+              onSelected: (value) {
+                if (value == 'delete') unawaited(_deleteConversation(item));
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'delete', child: Text('حذف المحادثة')),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1163,7 +1269,11 @@ class _CommunityPageState extends State<CommunityPage> {
                   final offset = selection.isValid
                       ? selection.baseOffset
                       : _composer.text.length;
-                  final text = _composer.text.replaceRange(offset, offset, emoji);
+                  final text = _composer.text.replaceRange(
+                    offset,
+                    offset,
+                    emoji,
+                  );
                   _composer.value = TextEditingValue(
                     text: text,
                     selection: TextSelection.collapsed(
@@ -1175,7 +1285,10 @@ class _CommunityPageState extends State<CommunityPage> {
                     .map(
                       (emoji) => PopupMenuItem(
                         value: emoji,
-                        child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                        child: Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 22),
+                        ),
                       ),
                     )
                     .toList(),
@@ -1272,7 +1385,10 @@ class _Avatar extends StatelessWidget {
             foregroundColor: const Color(0xff177b71),
             child: Text(
               initial,
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: size * .38),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: size * .38,
+              ),
             ),
           ),
         ),
