@@ -6,6 +6,7 @@ class _FakeCommunityApi {
   final publicMessages = <Map<String, dynamic>>[];
   final privateMessages = <Map<String, dynamic>>[];
   final conversations = <Map<String, dynamic>>[];
+  final postedBodies = <Map<String, dynamic>>[];
   int nextId = 1;
 
   Future<dynamic> get(String path) async {
@@ -22,6 +23,7 @@ class _FakeCommunityApi {
   }
 
   Future<dynamic> post(String path, Map<String, dynamic> body) async {
+    postedBodies.add(Map<String, dynamic>.from(body));
     if (path == '/community/conversations') {
       final conversation = {
         'id': 10,
@@ -33,9 +35,21 @@ class _FakeCommunityApi {
         ..add(conversation);
       return conversation;
     }
+    final parent = [
+      ...publicMessages,
+      ...privateMessages,
+    ].where((item) => item['id'] == body['reply_to_id']).firstOrNull;
     final message = {
       'id': nextId++,
       'body': body['body'],
+      'reply_to_id': body['reply_to_id'],
+      'reply_to': parent == null
+          ? null
+          : {
+              'id': parent['id'],
+              'body': parent['body'],
+              'sender_name': parent['sender']['display_name'],
+            },
       'created_at': DateTime.now().toUtc().toIso8601String(),
       'sender': {'id': 1, 'display_name': 'مها'},
       'is_mine': true,
@@ -71,6 +85,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.publicMessages, hasLength(1));
     expect(find.text('مرحبًا بالمجتمع'), findsOneWidget);
+  });
+
+  testWidgets('public chat replies with the parent message preview', (
+    tester,
+  ) async {
+    final api = _FakeCommunityApi()..nextId = 2;
+    api.publicMessages.add({
+      'id': 1,
+      'body': 'رسالة أصلية',
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+      'sender': {'id': 2, 'display_name': 'سارة'},
+      'is_mine': false,
+    });
+    await tester.pumpWidget(_testApp(api));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('رسالة أصلية'));
+    await tester.pumpAndSettle();
+    expect(find.text('رد على سارة'), findsOneWidget);
+    expect(find.text('رسالة أصلية'), findsNWidgets(2));
+
+    await tester.enterText(find.byType(TextField).first, 'هذا رد');
+    await tester.tap(find.byTooltip('إرسال الرسالة'));
+    await tester.pumpAndSettle();
+
+    expect(api.postedBodies.last, {'body': 'هذا رد', 'reply_to_id': 1});
+    expect(find.text('رسالة أصلية'), findsNWidgets(2));
   });
 
   testWidgets('member can start a private chat', (tester) async {

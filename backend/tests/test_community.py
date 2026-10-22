@@ -45,6 +45,21 @@ class CommunityApiTests(unittest.TestCase):
                 cls.user_ids.append(user.id)
             session.commit()
 
+    def setUp(self):
+        with main.SessionLocal() as session:
+            session.execute(main.delete(main.CommunityMessage))
+            session.execute(main.delete(main.CommunityMembership))
+            session.execute(main.delete(main.CommunityConversation))
+            session.execute(main.delete(main.CommunityProfile))
+            restricted = session.scalar(
+                main.select(main.User).where(main.User.email == "community-restricted@example.test")
+            )
+            if restricted:
+                session.execute(main.delete(main.Permission).where(main.Permission.user_id == restricted.id))
+                session.execute(main.delete(main.User).where(main.User.id == restricted.id))
+            session.execute(main.delete(main.RoleItem).where(main.RoleItem.role == "restricted"))
+            session.commit()
+
     @classmethod
     def tearDownClass(cls):
         main.engine.dispose()
@@ -68,6 +83,7 @@ class CommunityApiTests(unittest.TestCase):
             received = main.public_community_messages(reader, session)
             self.assertEqual(sent["body"], received[-1]["body"])
             self.assertNotIn("email", received[-1]["sender"])
+            self.assertIsNotNone(sent["expires_at"])
 
     def test_private_access_and_unread_cursor(self):
         with main.SessionLocal() as session:
@@ -78,9 +94,10 @@ class CommunityApiTests(unittest.TestCase):
                 main.CommunityConversationIn(user_id=reader.id), sender, session
             )
             conversation_id = conversation["id"]
-            main.send_private_community_message(
+            private_message = main.send_private_community_message(
                 conversation_id, main.CommunityMessageIn(body="رسالة خاصة"), sender, session
             )
+            self.assertIsNone(private_message["expires_at"])
             with self.assertRaises(HTTPException) as error:
                 main.require_conversation_member(conversation_id, outsider, session)
             self.assertEqual(error.exception.status_code, 404)
@@ -88,6 +105,72 @@ class CommunityApiTests(unittest.TestCase):
             received = main.private_community_messages(conversation_id, reader, session)
             self.assertEqual(received[0]["body"], "رسالة خاصة")
             self.assertEqual(main.list_community_conversations(reader, session)[0]["unread_count"], 0)
+
+    def test_replies_stay_inside_their_conversation(self):
+        with main.SessionLocal() as session:
+            sender = session.get(main.User, self.user_ids[0])
+            recipient = session.get(main.User, self.user_ids[1])
+            public_root = main.send_public_community_message(
+                main.CommunityMessageIn(body="رسالة عامة أصلية"), sender, session
+            )
+            private_conversation = main.create_community_conversation(
+                main.CommunityConversationIn(user_id=recipient.id), sender, session
+            )
+            private_root = main.send_private_community_message(
+                private_conversation["id"],
+                main.CommunityMessageIn(body="رسالة خاصة أصلية"),
+                sender,
+                session,
+            )
+            with self.assertRaises(HTTPException) as error:
+                main.send_public_community_message(
+                    main.CommunityMessageIn(body="رد عام", reply_to_id=private_root["id"]),
+                    sender,
+                    session,
+                )
+            self.assertEqual(error.exception.status_code, 404)
+            reply = main.send_public_community_message(
+                main.CommunityMessageIn(body="رد عام صحيح", reply_to_id=public_root["id"]),
+                sender,
+                session,
+            )
+            self.assertEqual(reply["reply_to"]["id"], public_root["id"])
+
+    def test_expiry_cleanup_only_deletes_expired_public_messages(self):
+        with main.SessionLocal() as session:
+            sender = session.get(main.User, self.user_ids[0])
+            recipient = session.get(main.User, self.user_ids[1])
+            conversation = main.create_community_conversation(
+                main.CommunityConversationIn(user_id=recipient.id), sender, session
+            )
+            expired = main.CommunityMessage(
+                sender_id=sender.id,
+                body="expired public test",
+                created_at=datetime.now(timezone.utc) - timedelta(hours=25),
+                expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+            )
+            current = main.CommunityMessage(
+                sender_id=sender.id,
+                body="current public test",
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+            private = main.CommunityMessage(
+                sender_id=sender.id,
+                conversation_id=conversation["id"],
+                body="permanent private test",
+            )
+            session.add_all([expired, current, private])
+            session.flush()
+            expired_id, current_id, private_id = expired.id, current.id, private.id
+            result = session.execute(main.expired_public_messages_statement())
+            session.commit()
+            remaining = set(session.scalars(
+                main.select(main.CommunityMessage.id).where(
+                    main.CommunityMessage.id.in_([expired_id, current_id, private_id])
+                )
+            ).all())
+            self.assertEqual(result.rowcount, 1)
+            self.assertEqual(remaining, {current_id, private_id})
 
     def test_member_search_returns_only_public_profile_fields(self):
         with main.SessionLocal() as session:

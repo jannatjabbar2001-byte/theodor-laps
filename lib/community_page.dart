@@ -52,6 +52,7 @@ class _CommunityPageState extends State<CommunityPage> {
   _CommunitySection _section = _CommunitySection.publicChat;
   Map<String, dynamic> _profile = {};
   Map<String, dynamic>? _conversation;
+  Map<String, dynamic>? _replyTo;
   List<Map<String, dynamic>> _messages = [];
   List<Map<String, dynamic>> _conversations = [];
   List<Map<String, dynamic>> _users = [];
@@ -222,15 +223,19 @@ class _CommunityPageState extends State<CommunityPage> {
   Future<void> _send() async {
     final text = _composer.text.trim();
     if (text.isEmpty || _sending) return;
+    final replyTo = _replyTo;
     final path = _section == _CommunitySection.inbox && _conversationId != null
         ? '/community/conversations/$_conversationId/messages'
         : '/community/messages';
     setState(() => _sending = true);
     try {
-      final message = _map(await widget.onPost(path, {'body': text}));
+      final payload = <String, dynamic>{'body': text};
+      if (replyTo != null) payload['reply_to_id'] = replyTo['id'];
+      final message = _map(await widget.onPost(path, payload));
       if (!mounted) return;
       _composer.clear();
       setState(() {
+        if (_replyTo?['id'] == replyTo?['id']) _replyTo = null;
         if (!_messages.any((item) => item['id'] == message['id'])) {
           _messages = [..._messages, message];
         }
@@ -244,6 +249,17 @@ class _CommunityPageState extends State<CommunityPage> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  void _selectReply(Map<String, dynamic> message) {
+    final sender = _map(message['sender']);
+    setState(() {
+      _replyTo = {
+        'id': message['id'],
+        'body': message['body'],
+        'sender_name': sender['display_name']?.toString() ?? 'عضو',
+      };
+    });
   }
 
   Future<void> _refreshConversations() async {
@@ -942,6 +958,7 @@ class _CommunityPageState extends State<CommunityPage> {
                         message: message,
                         avatarUrl: _avatarUrl(sender),
                         avatarHeaders: _imageHeaders,
+                        onReply: () => _selectReply(message),
                         onSenderTap: message['is_mine'] == true
                             ? null
                             : () =>
@@ -1082,9 +1099,60 @@ class _CommunityPageState extends State<CommunityPage> {
         color: Colors.white,
         border: Border(top: BorderSide(color: _line)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          if (_replyTo != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsetsDirectional.only(
+                start: 12,
+                end: 4,
+                top: 6,
+                bottom: 6,
+              ),
+              decoration: BoxDecoration(
+                color: _canvas,
+                borderRadius: BorderRadius.circular(12),
+                border: const BorderDirectional(
+                  start: BorderSide(color: _teal, width: 3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'رد على ${_replyTo!['sender_name']}',
+                          style: const TextStyle(
+                            color: _teal,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          _replyTo!['body']?.toString() ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: _muted, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'إلغاء الرد',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => setState(() => _replyTo = null),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                  ),
+                ],
+              ),
+            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
           PopupMenuButton<String>(
             tooltip: 'إضافة رمز تعبيري',
             onSelected: (emoji) {
@@ -1162,6 +1230,8 @@ class _CommunityPageState extends State<CommunityPage> {
                     )
                   : const Icon(Icons.send_rounded),
             ),
+          ),
+            ],
           ),
         ],
       ),
@@ -1244,11 +1314,13 @@ class _Badge extends StatelessWidget {
 class _MessageBubble extends StatelessWidget {
   final Map<String, dynamic> message;
   final VoidCallback? onSenderTap;
+  final VoidCallback? onReply;
   final String? avatarUrl;
   final Map<String, String> avatarHeaders;
   const _MessageBubble({
     required this.message,
     this.onSenderTap,
+    this.onReply,
     this.avatarUrl,
     this.avatarHeaders = const {},
   });
@@ -1256,6 +1328,9 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final mine = message['is_mine'] == true;
     final sender = Map<String, dynamic>.from(message['sender'] as Map);
+    final replyTo = message['reply_to'] is Map
+        ? Map<String, dynamic>.from(message['reply_to'] as Map)
+        : null;
     final name = sender['display_name']?.toString() ?? 'عضو';
     final dateTime = DateTime.tryParse(message['created_at']?.toString() ?? '')
         ?.toLocal();
@@ -1268,7 +1343,9 @@ class _MessageBubble extends StatelessWidget {
         (dateTime.year != today.year ||
             dateTime.month != today.month ||
             dateTime.day != today.day);
-    return Align(
+    return GestureDetector(
+      onLongPress: onReply,
+      child: Align(
       alignment: mine
           ? AlignmentDirectional.centerEnd
           : AlignmentDirectional.centerStart,
@@ -1315,6 +1392,50 @@ class _MessageBubble extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (replyTo != null)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 7),
+                          padding: const EdgeInsetsDirectional.only(
+                            start: 8,
+                            end: 6,
+                            top: 5,
+                            bottom: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: mine
+                                ? const Color(0xffc9e8e1)
+                                : const Color(0xfff1f6f4),
+                            borderRadius: BorderRadius.circular(8),
+                            border: const BorderDirectional(
+                              start: BorderSide(color: Color(0xff0f9f95), width: 2),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                replyTo['sender_name']?.toString() ?? 'عضو',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xff177b71),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              Text(
+                                replyTo['body']?.toString() ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xff52645f),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       if (!mine)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 3),
@@ -1358,6 +1479,7 @@ class _MessageBubble extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

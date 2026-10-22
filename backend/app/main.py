@@ -1,3 +1,6 @@
+import asyncio
+import logging
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 import os
@@ -10,11 +13,11 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, ConfigDict, EmailStr
-from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, Text, UniqueConstraint, cast, create_engine, func, or_, select, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, cast, create_engine, delete, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
@@ -154,7 +157,10 @@ class CommunityProfile(Base):
 
 class CommunityConversation(Base):
     __tablename__ = "community_conversations"
-    __table_args__ = (UniqueConstraint("member_low_id", "member_high_id"),)
+    __table_args__ = (
+        UniqueConstraint("member_low_id", "member_high_id"),
+        CheckConstraint("member_low_id < member_high_id", name="ck_community_conversation_member_order"),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     member_low_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     member_high_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -172,12 +178,26 @@ class CommunityMessage(Base):
     __table_args__ = (
         Index("ix_community_messages_conversation_id_id", "conversation_id", "id"),
         Index("ix_community_messages_created_at", "created_at"),
+        Index("ix_community_messages_reply_to_id", "reply_to_id"),
+        Index(
+            "ix_community_public_message_expiry",
+            "expires_at",
+            postgresql_where=text("conversation_id IS NULL"),
+            sqlite_where=text("conversation_id IS NULL"),
+        ),
+        CheckConstraint(
+            "(conversation_id IS NULL AND expires_at IS NOT NULL) OR "
+            "(conversation_id IS NOT NULL AND expires_at IS NULL)",
+            name="ck_community_message_expiry_scope",
+        ),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     sender_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     conversation_id: Mapped[int | None] = mapped_column(ForeignKey("community_conversations.id", ondelete="CASCADE"), nullable=True)
+    reply_to_id: Mapped[int | None] = mapped_column(ForeignKey("community_messages.id", ondelete="SET NULL"), nullable=True)
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 Base.metadata.create_all(engine)
 
@@ -249,7 +269,66 @@ def seed_system() -> None:
         session.commit()
 
 seed_system()
-app = FastAPI(title="الكون الشامل API", version="1.0.0")
+
+COMMUNITY_RETENTION_LOCK_ID = 86520423107
+logger = logging.getLogger(__name__)
+
+def expired_public_messages_statement():
+    return delete(CommunityMessage).where(
+        CommunityMessage.conversation_id.is_(None),
+        CommunityMessage.expires_at <= func.now(),
+    )
+
+def purge_expired_public_messages() -> int:
+    if not DATABASE_URL.startswith("postgresql"):
+        return 0
+    with engine.connect() as connection:
+        acquired = connection.execute(
+            text("SELECT pg_try_advisory_lock(:lock_id)"),
+            {"lock_id": COMMUNITY_RETENTION_LOCK_ID},
+        ).scalar_one()
+        connection.commit()
+        if not acquired:
+            return 0
+        try:
+            result = connection.execute(expired_public_messages_statement())
+            deleted_count = result.rowcount or 0
+            connection.commit()
+            return deleted_count
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.execute(
+                text("SELECT pg_advisory_unlock(:lock_id)"),
+                {"lock_id": COMMUNITY_RETENTION_LOCK_ID},
+            )
+            connection.commit()
+
+async def _community_retention_worker() -> None:
+    while True:
+        try:
+            await asyncio.to_thread(purge_expired_public_messages)
+        except Exception as error:
+            logger.error("Community retention cleanup failed (%s)", type(error).__name__)
+        await asyncio.sleep(60)
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    worker = None
+    if DATABASE_URL.startswith("postgresql"):
+        worker = asyncio.create_task(_community_retention_worker())
+    try:
+        yield
+    finally:
+        if worker is not None:
+            worker.cancel()
+            try:
+                await worker
+            except asyncio.CancelledError:
+                pass
+
+app = FastAPI(title="الكون الشامل API", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -271,7 +350,9 @@ class RoleIn(BaseModel): role: str
 class ProgressIn(BaseModel): video_id: int; position_seconds: float; completed: bool = False
 class PresignIn(BaseModel): filename: str; content_type: str = "video/mp4"
 class CommunityProfileIn(BaseModel): display_name: str
-class CommunityMessageIn(BaseModel): body: str
+class CommunityMessageIn(BaseModel):
+    body: str
+    reply_to_id: int | None = None
 class CommunityConversationIn(BaseModel): user_id: int
 
 def normalized_title(title: str) -> str:
@@ -351,6 +432,36 @@ async def store_community_avatar(user_id: int, image: UploadFile, profile: Commu
     if not data.startswith(signature) or (extension == "webp" and data[8:12] != b"WEBP"):
         raise HTTPException(status_code=415, detail="محتوى الملف لا يطابق نوع الصورة")
 
+    if DATABASE_URL.startswith("postgresql"):
+        filename = f"community-avatars/{user_id}/{uuid4().hex}.{extension}"
+        client = r2_client()
+        try:
+            client.put_object(
+                Bucket=R2_BUCKET,
+                Key=filename,
+                Body=data,
+                ContentType=content_type,
+            )
+        except Exception as error:
+            raise HTTPException(status_code=502, detail="تعذر حفظ الصورة في R2") from error
+        previous_filename = profile.avatar_filename
+        profile.avatar_filename = filename
+        try:
+            session.commit()
+        except Exception:
+            session.rollback()
+            try:
+                client.delete_object(Bucket=R2_BUCKET, Key=filename)
+            except Exception:
+                pass
+            raise
+        if previous_filename and previous_filename.startswith("community-avatars/"):
+            try:
+                client.delete_object(Bucket=R2_BUCKET, Key=previous_filename)
+            except Exception as error:
+                logger.warning("Unable to remove replaced community avatar (%s)", type(error).__name__)
+        return
+
     avatar_directory = MEDIA / "community-avatars"
     avatar_directory.mkdir(parents=True, exist_ok=True)
     filename = f"{user_id}-{uuid4().hex}.{extension}"
@@ -372,9 +483,17 @@ def community_message_data(messages: list[CommunityMessage], viewer_id: int, ses
     sender_ids = {message.sender_id for message in messages}
     if not sender_ids:
         return []
+    reply_ids = {message.reply_to_id for message in messages if message.reply_to_id is not None}
+    replies = session.scalars(select(CommunityMessage).where(CommunityMessage.id.in_(reply_ids))).all() if reply_ids else []
+    reply_sender_ids = {reply.sender_id for reply in replies}
     users = session.scalars(select(User).where(User.id.in_(sender_ids))).all()
+    reply_users = session.scalars(select(User).where(User.id.in_(reply_sender_ids))).all() if reply_sender_ids else []
     profiles = session.scalars(select(CommunityProfile).where(CommunityProfile.user_id.in_(sender_ids))).all()
+    reply_profiles = session.scalars(select(CommunityProfile).where(CommunityProfile.user_id.in_(reply_sender_ids))).all() if reply_sender_ids else []
     users_by_id = {member.id: member for member in users}
+    reply_names = {profile.user_id: profile.display_name for profile in reply_profiles if profile.display_name}
+    reply_users_by_id = {member.id: member for member in reply_users}
+    replies_by_id = {reply.id: reply for reply in replies}
     names_by_id = {profile.user_id: profile.display_name for profile in profiles if profile.display_name}
     avatars_by_id = {profile.user_id: profile.avatar_filename for profile in profiles if profile.avatar_filename}
     return [
@@ -382,6 +501,21 @@ def community_message_data(messages: list[CommunityMessage], viewer_id: int, ses
             "id": message.id,
             "body": message.body,
             "created_at": message.created_at.isoformat(),
+            "expires_at": message.expires_at.isoformat() if message.expires_at else None,
+            "reply_to_id": message.reply_to_id,
+            "reply_to": (
+                {
+                    "id": replies_by_id[message.reply_to_id].id,
+                    "body": replies_by_id[message.reply_to_id].body,
+                    "sender_name": reply_names.get(
+                        replies_by_id[message.reply_to_id].sender_id,
+                        f"عضو {replies_by_id[message.reply_to_id].sender_id}",
+                    ),
+                }
+                if message.reply_to_id in replies_by_id
+                and replies_by_id[message.reply_to_id].sender_id in reply_users_by_id
+                else None
+            ),
             "sender": {
                 "id": message.sender_id,
                 "display_name": names_by_id.get(message.sender_id, f"عضو {message.sender_id}"),
@@ -395,6 +529,8 @@ def community_message_data(messages: list[CommunityMessage], viewer_id: int, ses
 
 def select_community_messages(session: Session, conversation_id: int | None, before_id: int | None, after_id: int, limit: int) -> list[CommunityMessage]:
     statement = select(CommunityMessage).where(CommunityMessage.conversation_id == conversation_id)
+    if conversation_id is None:
+        statement = statement.where(CommunityMessage.expires_at > datetime.now(timezone.utc))
     if before_id is not None:
         statement = statement.where(CommunityMessage.id < before_id).order_by(CommunityMessage.id.desc())
     elif after_id > 0:
@@ -417,6 +553,16 @@ def require_conversation_member(conversation_id: int, user: User, session: Sessi
     if not membership:
         raise HTTPException(status_code=404, detail="المحادثة غير موجودة")
     return conversation, membership
+
+def require_reply_target(reply_to_id: int | None, conversation_id: int | None, session: Session) -> None:
+    if reply_to_id is None:
+        return
+    target = session.scalar(select(CommunityMessage).where(
+        CommunityMessage.id == reply_to_id,
+        CommunityMessage.conversation_id == conversation_id,
+    ))
+    if not target:
+        raise HTTPException(status_code=404, detail="رسالة الرد غير موجودة في هذه المحادثة")
 
 @app.get("/health")
 def health(): return {"status": "ok", "service": "alkawn-alshamil"}
@@ -515,6 +661,32 @@ def get_community_avatar(user_id: int, user: Annotated[User, Depends(current_use
     profile = session.get(CommunityProfile, user_id)
     if not profile or not profile.avatar_filename:
         raise HTTPException(status_code=404, detail="الصورة غير موجودة")
+    if profile.avatar_filename.startswith("community-avatars/"):
+        if ".." in profile.avatar_filename.split("/"):
+            raise HTTPException(status_code=404, detail="الصورة غير موجودة")
+        try:
+            image = r2_client().get_object(
+                Bucket=R2_BUCKET,
+                Key=profile.avatar_filename,
+            )
+            content = image["Body"].read(2 * 1024 * 1024 + 1)
+        except Exception as error:
+            raise HTTPException(status_code=502, detail="تعذر تحميل الصورة من R2") from error
+        if len(content) > 2 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="حجم الصورة المخزنة غير صالح")
+        media_type = image.get("ContentType") or {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".webp": "image/webp",
+        }.get(Path(profile.avatar_filename).suffix.lower())
+        if media_type not in {"image/png", "image/jpeg", "image/webp"}:
+            raise HTTPException(status_code=415, detail="نوع الصورة المخزنة غير صالح")
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={"Cache-Control": "private, max-age=3600"},
+        )
+
     filename = Path(profile.avatar_filename).name
     avatar_path = MEDIA / "community-avatars" / filename
     if not avatar_path.is_file():
@@ -551,7 +723,15 @@ def send_public_community_message(data: CommunityMessageIn, user: Annotated[User
     body = data.body.strip()
     if not body or len(body) > 2000:
         raise HTTPException(status_code=422, detail="يجب أن تحتوي الرسالة على 1 إلى 2000 حرف")
-    message = CommunityMessage(sender_id=user.id, body=body)
+    require_reply_target(data.reply_to_id, None, session)
+    created_at = datetime.now(timezone.utc)
+    message = CommunityMessage(
+        sender_id=user.id,
+        body=body,
+        reply_to_id=data.reply_to_id,
+        created_at=created_at,
+        expires_at=created_at + timedelta(hours=24),
+    )
     session.add(message)
     session.commit()
     session.refresh(message)
@@ -637,7 +817,13 @@ def send_private_community_message(conversation_id: int, data: CommunityMessageI
     body = data.body.strip()
     if not body or len(body) > 2000:
         raise HTTPException(status_code=422, detail="يجب أن تحتوي الرسالة على 1 إلى 2000 حرف")
-    message = CommunityMessage(sender_id=user.id, conversation_id=conversation_id, body=body)
+    require_reply_target(data.reply_to_id, conversation_id, session)
+    message = CommunityMessage(
+        sender_id=user.id,
+        conversation_id=conversation_id,
+        reply_to_id=data.reply_to_id,
+        body=body,
+    )
     conversation.updated_at = datetime.now(timezone.utc)
     session.add(message)
     session.commit()
