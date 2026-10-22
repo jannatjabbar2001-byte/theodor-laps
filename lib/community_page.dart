@@ -301,6 +301,7 @@ class _CommunityPageState extends State<CommunityPage> {
         _section = _CommunitySection.inbox;
         _mobileChatOpen = true;
         _messages = [];
+        _replyTo = null;
       });
       await _refreshMessages(initial: true);
       await _refreshConversations();
@@ -315,6 +316,7 @@ class _CommunityPageState extends State<CommunityPage> {
       _section = _CommunitySection.inbox;
       _mobileChatOpen = true;
       _messages = [];
+      _replyTo = null;
     });
     unawaited(_refreshMessages(initial: true));
   }
@@ -322,6 +324,7 @@ class _CommunityPageState extends State<CommunityPage> {
   void _selectSection(_CommunitySection section) {
     setState(() {
       _section = section;
+      _replyTo = null;
       if (section != _CommunitySection.inbox) _mobileChatOpen = false;
       if (section == _CommunitySection.publicChat) _conversation = null;
     });
@@ -1153,84 +1156,84 @@ class _CommunityPageState extends State<CommunityPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-          PopupMenuButton<String>(
-            tooltip: 'إضافة رمز تعبيري',
-            onSelected: (emoji) {
-              final selection = _composer.selection;
-              final offset = selection.isValid
-                  ? selection.baseOffset
-                  : _composer.text.length;
-              final text = _composer.text.replaceRange(offset, offset, emoji);
-              _composer.value = TextEditingValue(
-                text: text,
-                selection: TextSelection.collapsed(
-                  offset: offset + emoji.length,
-                ),
-              );
-            },
-            itemBuilder: (_) => _emojis
-                .map(
-                  (emoji) => PopupMenuItem(
-                    value: emoji,
-                    child: Text(emoji, style: const TextStyle(fontSize: 22)),
-                  ),
-                )
-                .toList(),
-            child: const Padding(
-              padding: EdgeInsets.all(12),
-              child: Icon(Icons.emoji_emotions_outlined, color: _muted),
-            ),
-          ),
-          Expanded(
-            child: TextField(
-              controller: _composer,
-              minLines: 1,
-              maxLines: 4,
-              maxLength: 2000,
-              buildCounter: (
-                _, {
-                required currentLength,
-                required isFocused,
-                maxLength,
-              }) => null,
-              textInputAction: TextInputAction.newline,
-              onSubmitted: (_) => _send(),
-              decoration: InputDecoration(
-                hintText: 'اكتب رسالة…',
-                filled: true,
-                fillColor: _canvas,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox.square(
-            dimension: 46,
-            child: IconButton.filled(
-              tooltip: 'إرسال الرسالة',
-              onPressed: _sending ? null : _send,
-              style: IconButton.styleFrom(
-                backgroundColor: _teal,
-                foregroundColor: Colors.white,
-              ),
-              icon: _sending
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+              PopupMenuButton<String>(
+                tooltip: 'إضافة رمز تعبيري',
+                onSelected: (emoji) {
+                  final selection = _composer.selection;
+                  final offset = selection.isValid
+                      ? selection.baseOffset
+                      : _composer.text.length;
+                  final text = _composer.text.replaceRange(offset, offset, emoji);
+                  _composer.value = TextEditingValue(
+                    text: text,
+                    selection: TextSelection.collapsed(
+                      offset: offset + emoji.length,
+                    ),
+                  );
+                },
+                itemBuilder: (_) => _emojis
+                    .map(
+                      (emoji) => PopupMenuItem(
+                        value: emoji,
+                        child: Text(emoji, style: const TextStyle(fontSize: 22)),
                       ),
                     )
-                  : const Icon(Icons.send_rounded),
-            ),
-          ),
+                    .toList(),
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Icon(Icons.emoji_emotions_outlined, color: _muted),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _composer,
+                  minLines: 1,
+                  maxLines: 4,
+                  maxLength: 2000,
+                  buildCounter: (
+                    _, {
+                    required currentLength,
+                    required isFocused,
+                    maxLength,
+                  }) => null,
+                  textInputAction: TextInputAction.newline,
+                  onSubmitted: (_) => _send(),
+                  decoration: InputDecoration(
+                    hintText: 'اكتب رسالة…',
+                    filled: true,
+                    fillColor: _canvas,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox.square(
+                dimension: 46,
+                child: IconButton.filled(
+                  tooltip: 'إرسال الرسالة',
+                  onPressed: _sending ? null : _send,
+                  style: IconButton.styleFrom(
+                    backgroundColor: _teal,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: _sending
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded),
+                ),
+              ),
             ],
           ),
         ],
@@ -1346,140 +1349,143 @@ class _MessageBubble extends StatelessWidget {
     return GestureDetector(
       onLongPress: onReply,
       child: Align(
-      alignment: mine
-          ? AlignmentDirectional.centerEnd
-          : AlignmentDirectional.centerStart,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width < 600 ? 310 : 480,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (!mine) ...[
-                InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: onSenderTap,
-                  child: _Avatar(
-                    name: name,
-                    size: 30,
-                    imageUrl: avatarUrl,
-                    headers: avatarHeaders,
-                  ),
-                ),
-                const SizedBox(width: 7),
-              ],
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(13, 9, 13, 7),
-                  decoration: BoxDecoration(
-                    color: mine ? const Color(0xffd9f2ec) : Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: Radius.circular(mine ? 16 : 5),
-                      bottomRight: Radius.circular(mine ? 5 : 16),
-                    ),
-                    border: Border.all(
-                      color: mine
-                          ? const Color(0xffcce9e3)
-                          : const Color(0xffe6eeeb),
+        alignment: mine
+            ? AlignmentDirectional.centerEnd
+            : AlignmentDirectional.centerStart,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width < 600 ? 310 : 480,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (!mine) ...[
+                  InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onSenderTap,
+                    child: _Avatar(
+                      name: name,
+                      size: 30,
+                      imageUrl: avatarUrl,
+                      headers: avatarHeaders,
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (replyTo != null)
-                        Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(bottom: 7),
-                          padding: const EdgeInsetsDirectional.only(
-                            start: 8,
-                            end: 6,
-                            top: 5,
-                            bottom: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: mine
-                                ? const Color(0xffc9e8e1)
-                                : const Color(0xfff1f6f4),
-                            borderRadius: BorderRadius.circular(8),
-                            border: const BorderDirectional(
-                              start: BorderSide(color: Color(0xff0f9f95), width: 2),
+                  const SizedBox(width: 7),
+                ],
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(13, 9, 13, 7),
+                    decoration: BoxDecoration(
+                      color: mine ? const Color(0xffd9f2ec) : Colors.white,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(16),
+                        topRight: const Radius.circular(16),
+                        bottomLeft: Radius.circular(mine ? 16 : 5),
+                        bottomRight: Radius.circular(mine ? 5 : 16),
+                      ),
+                      border: Border.all(
+                        color: mine
+                            ? const Color(0xffcce9e3)
+                            : const Color(0xffe6eeeb),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (replyTo != null)
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 7),
+                            padding: const EdgeInsetsDirectional.only(
+                              start: 8,
+                              end: 6,
+                              top: 5,
+                              bottom: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: mine
+                                  ? const Color(0xffc9e8e1)
+                                  : const Color(0xfff1f6f4),
+                              borderRadius: BorderRadius.circular(8),
+                              border: const BorderDirectional(
+                                start: BorderSide(
+                                  color: Color(0xff0f9f95),
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  replyTo['sender_name']?.toString() ?? 'عضو',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xff177b71),
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                Text(
+                                  replyTo['body']?.toString() ?? '',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xff52645f),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                replyTo['sender_name']?.toString() ?? 'عضو',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                        if (!mine)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 3),
+                            child: InkWell(
+                              onTap: onSenderTap,
+                              child: Text(
+                                name,
                                 style: const TextStyle(
                                   color: Color(0xff177b71),
                                   fontWeight: FontWeight.w800,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              Text(
-                                replyTo['body']?.toString() ?? '',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xff52645f),
                                   fontSize: 12,
                                 ),
                               ),
-                            ],
+                            ),
+                          ),
+                        Text(
+                          message['body']?.toString() ?? '',
+                          style: const TextStyle(
+                            height: 1.45,
+                            color: Color(0xff18312f),
                           ),
                         ),
-                      if (!mine)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 3),
-                          child: InkWell(
-                            onTap: onSenderTap,
-                            child: Text(
-                              name,
-                              style: const TextStyle(
-                                color: Color(0xff177b71),
-                                fontWeight: FontWeight.w800,
-                                fontSize: 12,
-                              ),
+                        const SizedBox(height: 3),
+                        Align(
+                          alignment: AlignmentDirectional.bottomEnd,
+                          child: Text(
+                            showDate
+                                ? '${dateTime!.day}/${dateTime.month}/${dateTime.year} · $time'
+                                : time,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xff73837f),
                             ),
                           ),
                         ),
-                      Text(
-                        message['body']?.toString() ?? '',
-                        style: const TextStyle(
-                          height: 1.45,
-                          color: Color(0xff18312f),
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Align(
-                        alignment: AlignmentDirectional.bottomEnd,
-                        child: Text(
-                          showDate
-                              ? '${dateTime!.day}/${dateTime.month}/${dateTime.year} · $time'
-                              : time,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Color(0xff73837f),
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              if (mine) const SizedBox(width: 37),
-            ],
+                if (mine) const SizedBox(width: 37),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }

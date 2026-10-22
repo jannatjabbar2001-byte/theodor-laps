@@ -17,8 +17,9 @@ from fastapi.responses import FileResponse, Response
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, ConfigDict, EmailStr
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, cast, create_engine, delete, func, or_, select, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, cast, create_engine, delete, func, inspect as sqlalchemy_inspect, or_, select, text
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -88,6 +89,18 @@ if ENVIRONMENT == "production":
         raise RuntimeError(f"Missing production settings: {', '.join(missing_settings)}")
     if DATABASE_URL.startswith("sqlite"):
         raise RuntimeError("DATABASE_URL must use PostgreSQL in production")
+    database_url = make_url(DATABASE_URL)
+    supabase_host = urlsplit(SUPABASE_URL).hostname or ""
+    project_ref = supabase_host.split(".", 1)[0]
+    database_host = database_url.host or ""
+    database_user = database_url.username or ""
+    direct_connection = database_host.endswith(f".{project_ref}.supabase.co")
+    pooler_connection = (
+        database_host.endswith(".pooler.supabase.com")
+        and database_user.endswith(f".{project_ref}")
+    )
+    if not project_ref or not (direct_connection or pooler_connection):
+        raise RuntimeError("DATABASE_URL does not point to the configured Supabase project")
 engine_options = {"connect_args": {"check_same_thread": False}} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, **engine_options)
 SessionLocal = sessionmaker(bind=engine, autoflush=False)
@@ -199,7 +212,26 @@ class CommunityMessage(Base):
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-Base.metadata.create_all(engine)
+if DATABASE_URL.startswith("sqlite"):
+    Base.metadata.create_all(engine)
+else:
+    inspector = sqlalchemy_inspect(engine)
+    missing_tables = sorted(set(Base.metadata.tables) - set(inspector.get_table_names()))
+    missing_columns = {
+        table.name: sorted(
+            set(table.columns.keys())
+            - {column["name"] for column in inspector.get_columns(table.name)}
+        )
+        for table in Base.metadata.sorted_tables
+        if table.name in inspector.get_table_names()
+        and set(table.columns.keys())
+        - {column["name"] for column in inspector.get_columns(table.name)}
+    }
+    if missing_tables or missing_columns:
+        raise RuntimeError(
+            "PostgreSQL schema is incomplete; apply the required migrations "
+            f"(missing tables: {missing_tables}, missing columns: {missing_columns})"
+        )
 
 ITEMS = {
     "programming": "البرمجة",
@@ -235,9 +267,6 @@ def seed_system() -> None:
             if "avatar_filename" not in profile_columns:
                 session.execute(text("ALTER TABLE community_profiles ADD COLUMN avatar_filename VARCHAR(80)"))
                 session.commit()
-        else:
-            session.execute(text("ALTER TABLE community_profiles ADD COLUMN IF NOT EXISTS avatar_filename VARCHAR(80)"))
-            session.commit()
         for key, title in ITEMS.items():
             if not session.scalar(select(Item).where(Item.key == key)):
                 session.add(Item(key=key, title=title, enabled=True))
@@ -251,7 +280,7 @@ def seed_system() -> None:
                 ("2", "2", "admin"),
                 ("3", "3", "user"),
             )
-            if ENVIRONMENT == "development"
+            if ENVIRONMENT == "development" and DATABASE_URL.startswith("sqlite")
             else ()
         )
         for username, password, role in originals:
