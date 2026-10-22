@@ -37,7 +37,15 @@ FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN")
 def cors_origins() -> list[str]:
     origin = (FRONTEND_ORIGIN or "").strip()
     if ENVIRONMENT == "development":
-        return [origin] if origin else ["*"]
+        if not origin or origin == "*":
+            return ["*"]
+        origins = {origin}
+        parsed_origin = urlsplit(origin)
+        if parsed_origin.hostname in {"localhost", "127.0.0.1"}:
+            alternate_host = "127.0.0.1" if parsed_origin.hostname == "localhost" else "localhost"
+            alternate_origin = parsed_origin._replace(netloc=f"{alternate_host}:{parsed_origin.port}" if parsed_origin.port else alternate_host)
+            origins.add(alternate_origin.geturl())
+        return sorted(origins)
     if not origin or origin == "*" or "," in origin:
         raise RuntimeError("FRONTEND_ORIGIN must be a single origin in production")
     try:

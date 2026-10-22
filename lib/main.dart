@@ -622,9 +622,14 @@ class _LoginPageState extends State<LoginPage> {
     var role = 'user';
     try {
       final result = await TheodoreApi.login(username, password);
+      final accessToken = result['access_token'];
+      final user = result['user'];
+      if (accessToken is! String || user is! Map<String, dynamic>) {
+        throw const FormatException('Invalid login response');
+      }
       final preferences = await SharedPreferences.getInstance();
-      await preferences.setString('theodore_access_token', result['access_token'] as String);
-      role = (result['user'] as Map<String, dynamic>)['role'] as String? ?? 'user';
+      await preferences.setString('theodore_access_token', accessToken);
+      role = user['role'] as String? ?? 'user';
       isManager = role == 'superadmin';
     } catch (_) {
       setState(() => busy = false);
@@ -637,9 +642,11 @@ class _LoginPageState extends State<LoginPage> {
     } catch (_) {}
     await Future.delayed(const Duration(milliseconds: 400));
     if (mounted) {
-      Navigator.pushReplacement(
+      setState(() => busy = false);
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => HomePage(isManager: isManager, role: role)),
+        (_) => false,
       );
     }
   }
@@ -5073,6 +5080,22 @@ class _ModernLibraryPageState extends State<ModernLibraryPage> {
 
   static const books = [
     LibraryBook(
+      title: 'صياغة طلب',
+      author: 'مساعد المكتبة',
+      category: 'أدوات',
+      description: 'أنشئ طلبًا واضحًا ومنظمًا للحصول على نتيجة أدق وأفضل.',
+      color: Color(0xff0f9f95),
+      icon: Icons.edit_note,
+    ),
+    LibraryBook(
+      title: 'كتابة أسئلة',
+      author: 'مساعد المكتبة',
+      category: 'أدوات',
+      description: 'حوّل فكرتك إلى أسئلة تعليمية متنوعة وسهلة الاستخدام.',
+      color: Color(0xffd4a72c),
+      icon: Icons.quiz_outlined,
+    ),
+    LibraryBook(
       title: 'مدخل إلى التقنيات الحديثة',
       author: 'د. ليان السالم',
       category: 'علوم',
@@ -5260,7 +5283,7 @@ class _ModernLibraryPageState extends State<ModernLibraryPage> {
           height: 42,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            children: ['الكل', 'علوم', 'تقنية', 'صحة', 'تطوير', 'تاريخ', 'أدب']
+            children: ['الكل', 'أدوات', 'علوم', 'تقنية', 'صحة', 'تطوير', 'تاريخ', 'أدب']
                 .map(
                   (category) => Padding(
                     padding: const EdgeInsetsDirectional.only(end: 8),

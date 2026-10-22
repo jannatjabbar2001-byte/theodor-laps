@@ -1,21 +1,26 @@
 # ثيودور لابز
 
+منصة تعليمية متعددة المنصات مبنية بـ Flutter، مع خادم FastAPI للمصادقة والمحتوى.
+
 ## التشغيل المحلي
 
-شغّل الملف `run_app.bat` بالنقر المزدوج. سيبدأ خادم المصادقة تلقائيًا ثم يفتح التطبيق على Chrome.
+1. ثبّت اعتماديات Flutter: `flutter pub get`.
+2. أنشئ البيئة الافتراضية وثبّت اعتماديات الخادم من `backend/requirements.txt`.
+3. انسخ `backend/.env.example` إلى `backend/.env` وضع قيمة `JWT_SECRET`.
+4. شغّل `run_app.bat`؛ سيبدأ الخادم ثم يفتح تطبيق Flutter على Chrome.
 
-A new Flutter project.
+للتشغيل اليدوي، راجع [backend/README.md](backend/README.md).
 
-## Getting Started
+## بنية المشروع
 
-This project is a starting point for a Flutter application.
+- `lib/`: تطبيق Flutter وواجهاته ومصادر الفيديو الخاصة بالمنصات.
+- `assets/`: الصور والصوت المستخدمان داخل التطبيق.
+- `backend/app/`: تطبيق FastAPI، نماذج قاعدة البيانات، والمصادقة والمسارات.
+- `backend/media/`: ملفات الوسائط المحلية أثناء التطوير.
+- `android/` و`web/`: ملفات المنصات الخاصة بـ Flutter.
+- `APK_OUTPUT/` و`build/`: مخرجات البناء، ولا تُعد مصدرًا للتطبيق.
 
-A few resources to get you started if this is your first Flutter project:
+## بناء Web وAPK
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Web إنتاجي: `build_web.bat` مع ضبط `API_BASE_URL` على عنوان HTTPS.
+- APK إنتاجي: `build_apk.bat` مع ضبط `API_BASE_URL` على عنوان HTTPS.
